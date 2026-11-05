@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Administrator Panel — ThreatForge{% endblock %}
+
+{% block container_class %}tf-container-wide{% endblock %}
+
+{% block content %}
+<div class="tf-hero">
+    <h1 class="tf-hero-title">Platform Administration</h1>
+    <p class="tf-hero-sub">Global platform telemetry, user access control, security audit logs, and scan management</p>
+</div>
+
+<!-- 6 Balanced Metric Cards -->
+<div class="admin-metrics-grid">
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">Total Users</div>
+        <div class="tf-metric-val">{{ total_users }}</div>
+    </div>
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">Active (7d)</div>
+        <div class="tf-metric-val" style="color:var(--cyan);">{{ active_7d }}</div>
+    </div>
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">Total Scans</div>
+        <div class="tf-metric-val">{{ total_scans }}</div>
+    </div>
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">Scans Today</div>
+        <div class="tf-metric-val" style="color:var(--accent-light);">{{ scans_today }}</div>
+    </div>
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">Avg Risk Score</div>
+        <div class="tf-metric-val">{{ avg_score }}</div>
+    </div>
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">Failed Logins (24h)</div>
+        <div class="tf-metric-val" style="color:var(--warning);">{{ failed_24h }}</div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="tf-tabs" role="tablist">
+    <button class="tf-tab-btn active" role="tab" onclick="switchAdminTab('users')">User Management ({{ total_users }})</button>
+    <button class="tf-tab-btn" role="tab" onclick="switchAdminTab('scans')">Platform Scans ({{ total_scans }})</button>
+    <button class="tf-tab-btn" role="tab" onclick="switchAdminTab('logs')">Activity Audit Trail ({{ activity|length }})</button>
+</div>
+
+<!-- Tab 1: User Management -->
+<div id="admin-tab-users" class="tf-tab-pane active">
+    <div class="glass-card" style="padding:0;overflow:hidden;">
+        <div class="tf-table-wrap">
+            <table class="tf-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Failed Logins</th>
+                        <th>Last Login (UTC)</th>
+                        <th>Scans</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td><strong>#{{ u.id }}</strong></td>
+                        <td><strong>{{ u.username }}</strong></td>
+                        <td style="color:var(--text-secondary);font-size:0.85rem;">{{ u.email }}</td>
+                        <td><span class="tf-role-badge role-{{ u.role }}">{{ u.role }}</span></td>
+                        <td>
+                            {% if u.is_active %}
+                            <span style="color:var(--success);font-weight:700;">Active</span>
+                            {% else %}
+                            <span style="color:var(--danger);font-weight:700;">Disabled</span>
+                            {% endif %}
+                            {% if u.locked_until %}
+                            <br><span style="font-size:0.72rem;color:var(--warning);">🔒 Locked</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ u.failed_logins }}</td>
+                        <td style="font-size:0.8rem;color:var(--text-secondary);font-family:JetBrains Mono,monospace;">{{ u.last_login_at|default:"Never" }}</td>
+                        <td>{{ u.scan_count|default:0 }}</td>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
+                                {% if u.is_active %}
+                                <button type="button" class="tf-btn tf-btn-secondary btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="disable" data-username="{{ u.username }}">🚫 Disable</button>
+                                {% else %}
+                                <button type="button" class="tf-btn tf-btn-secondary btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="enable" data-username="{{ u.username }}">✅ Enable</button>
+                                {% endif %}
+
+                                {% if u.locked_until or u.failed_logins > 0 %}
+                                <button type="button" class="tf-btn tf-btn-secondary btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="unlock" data-username="{{ u.username }}">🔓 Unlock</button>
+                                {% endif %}
+
+                                {% if u.role == "user" %}
+                                <button type="button" class="tf-btn tf-btn-secondary btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="promote" data-username="{{ u.username }}">⬆️ Admin</button>
+                                {% else %}
+                                <button type="button" class="tf-btn tf-btn-secondary btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="demote" data-username="{{ u.username }}">⬇️ User</button>
+                                {% endif %}
+
+                                <button type="button" class="tf-btn tf-btn-danger btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="delete" data-username="{{ u.username }}">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Tab 2: All Scans -->
+<div id="admin-tab-scans" class="tf-tab-pane">
+    <div class="glass-card" style="padding:0;overflow:hidden;">
+        <div class="tf-table-wrap">
+            <table class="tf-table">
+                <thead>
+                    <tr>
+                        <th>Scan ID</th>
+                        <th>User</th>
+                        <th>Date (UTC)</th>
+                        <th>Target</th>
+                        <th>Grade</th>
+                        <th>Score</th>
+                        <th>Findings</th>
+                        <th>Report</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in scans %}
+                    <tr>
+                        <td><strong>#{{ s.id }}</strong></td>
+                        <td><span class="tf-user-chip" style="display:inline-flex;">{{ s.username|default:"Unknown" }}</span></td>
+                        <td style="font-size:0.8rem;color:var(--text-secondary);font-family:JetBrains Mono,monospace;">{{ s.started_at }}</td>
+                        <td><code style="color:#a5b4fc;">{{ s.target }}</code></td>
+                        <td>
+                            <span class="grade-pill" style="{% if s.grade == 'A' %}background:#10b981;{% elif s.grade == 'B' %}background:#84cc16;{% elif s.grade == 'C' %}background:#f59e0b;{% elif s.grade == 'D' %}background:#f97316;{% else %}background:#ef4444;{% endif %}">
+                                Grade {{ s.grade }}
+                            </span>
+                        </td>
+                        <td><strong>{{ s.risk_score }}/100</strong></td>
+                        <td style="font-size:0.85rem;">🔴 {{ s.high_count }} &nbsp; 🟡 {{ s.medium_count }} &nbsp; 🟢 {{ s.low_count }}</td>
+                        <td>
+                            <a href="{% url 'download_pdf' s.id %}" class="tf-btn tf-btn-primary" style="padding:0.3rem 0.7rem;font-size:0.78rem;">📄 PDF</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Tab 3: Activity Log -->
+<div id="admin-tab-logs" class="tf-tab-pane">
+    <div class="glass-card" style="padding:0;overflow:hidden;">
+        <div class="tf-table-wrap">
+            <table class="tf-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Timestamp (UTC)</th>
+                        <th>Action</th>
+                        <th>User</th>
+                        <th>Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in activity %}
+                    <tr>
+                        <td>#{{ a.id }}</td>
+                        <td style="font-size:0.8rem;color:var(--text-secondary);font-family:JetBrains Mono,monospace;">{{ a.created_at }}</td>
+                        <td>
+                            <span class="badge {% if 'failed' in a.action or 'delete' in a.action or 'disable' in a.action %}badge-high{% elif 'scan' in a.action %}badge-medium{% else %}badge-low{% endif %}">
+                                {{ a.action }}
+                            </span>
+                        </td>
+                        <td><strong>{{ a.username|default:"Anonymous" }}</strong></td>
+                        <td style="font-size:0.84rem;color:var(--text-secondary);word-break:break-all;">{{ a.detail|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchAdminTab(tabId) {
+    document.querySelectorAll('.tf-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tf-tab-pane').forEach(p => p.classList.remove('active'));
+
+    if (tabId === 'users') {
+        document.querySelectorAll('.tf-tab-btn')[0].classList.add('active');
+        document.getElementById('admin-tab-users').classList.add('active');
+    } else if (tabId === 'scans') {
+        document.querySelectorAll('.tf-tab-btn')[1].classList.add('active');
+        document.getElementById('admin-tab-scans').classList.add('active');
+    } else if (tabId === 'logs') {
+        document.querySelectorAll('.tf-tab-btn')[2].classList.add('active');
+        document.getElementById('admin-tab-logs').classList.add('active');
+    }
+}
+
+async function performUserAction(userId, actionType, username) {
+    if (actionType === 'delete') {
+        if (!confirm(`Are you sure you want to permanently delete user '${username}' and all associated scans?`)) return;
+    }
+
+    const formData = new FormData();
+    formData.append('user_id', userId);
+    formData.append('action_type', actionType);
+
+    try {
+        const res = await fetch('/api/admin/user-action/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        });
+        const json = await res.json();
+        if (json.ok) {
+            alert(json.message);
+            location.reload();
+        } else {
+            alert('Action failed: ' + json.error);
+        }
+    } catch (e) {
+        alert('Error: ' + e);
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-user-act');
+    if (btn && btn.dataset.id && btn.dataset.action) {
+        performUserAction(btn.dataset.id, btn.dataset.action, btn.dataset.username || '');
+    }
+});
+</script>
+{% endblock %}
+

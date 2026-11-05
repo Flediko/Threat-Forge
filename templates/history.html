@@ -1,0 +1,498 @@
+{% extends "base.html" %}
+
+{% block title %}Audit History &amp; Analytics — ThreatForge{% endblock %}
+
+{% block container_class %}tf-container-wide{% endblock %}
+
+{% block content %}
+<div class="tf-hero">
+    <h1 class="tf-hero-title">Audit History &amp; Analytics</h1>
+    <p class="tf-hero-sub">Track past security audits, download PDF reports, analyze grade trends, and compare scans</p>
+</div>
+
+{% if total_scans == 0 %}
+<div class="glass-card" style="text-align:center;padding:3rem 1.5rem;">
+    <svg class="tf-icon tf-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:0.75rem;color:var(--text-muted);"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+    <h2 style="font-size:1.25rem;font-weight:700;margin-bottom:0.4rem;">No saved scans found</h2>
+    <p style="color:var(--text-secondary);font-size:0.92rem;margin-bottom:1.25rem;">Run your first vulnerability scan on the Scan page to build your security history and track grade improvements.</p>
+    <a href="{% url 'scan' %}" class="tf-btn tf-btn-primary">Start First Scan</a>
+</div>
+{% else %}
+<!-- 6 Symmetrical Balanced Metric Cards -->
+<div class="history-metrics-grid">
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">Total Scans</div>
+        <div class="tf-metric-val">{{ total_scans }}</div>
+        <div class="tf-metric-hint">Completed audits</div>
+    </div>
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">Unique Targets</div>
+        <div class="tf-metric-val" style="color:var(--accent-light);">{{ targets|length }}</div>
+        <div class="tf-metric-hint">Endpoints evaluated</div>
+    </div>
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">Avg Risk Score</div>
+        <div class="tf-metric-val" style="color:var(--cyan);">{{ avg_score }}<span style="font-size:0.9rem;color:var(--text-muted);">/100</span></div>
+        <div class="tf-metric-hint">Overall benchmark</div>
+    </div>
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">Best Grade</div>
+        <div class="tf-metric-val" style="color:var(--success);">{{ best_grade }}</div>
+        <div class="tf-metric-hint">Top resilience grade</div>
+    </div>
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">Worst Grade</div>
+        <div class="tf-metric-val" style="color:var(--danger);">{{ worst_grade }}</div>
+        <div class="tf-metric-hint">Lowest resilience grade</div>
+    </div>
+    <div class="tf-metric-card">
+        <div class="tf-metric-label">This Month</div>
+        <div class="tf-metric-val">{{ scans_this_month }}</div>
+        <div class="tf-metric-hint">Recent velocity</div>
+    </div>
+</div>
+
+<!-- Navigation Tabs -->
+<div class="tf-tabs" role="tablist">
+    <button class="tf-tab-btn active" role="tab" onclick="switchHistTab('list')">Past Scans ({{ total_scans }})</button>
+    <button class="tf-tab-btn" role="tab" onclick="switchHistTab('trend')">Risk Score Trend</button>
+    <button class="tf-tab-btn" role="tab" onclick="switchHistTab('compare')">Compare Two Scans</button>
+</div>
+
+<!-- Tab 1: Past Scans Table -->
+<div id="hist-tab-list" class="tf-tab-pane active">
+    <div class="glass-card" style="padding:0;overflow:hidden;">
+        <div class="tf-table-wrap">
+            <table class="tf-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Scan Date (UTC)</th>
+                        <th>Target URL</th>
+                        <th>Grade</th>
+                        <th>Risk Score</th>
+                        <th>Findings</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in scans %}
+                    <tr id="scan-row-{{ s.id }}">
+                        <td><strong>#{{ s.id }}</strong></td>
+                        <td style="font-size:0.8rem;color:var(--text-secondary);font-family:JetBrains Mono,monospace;">{{ s.started_at }}</td>
+                        <td><code style="color:#a5b4fc;">{{ s.target }}</code></td>
+                        <td>
+                            <span class="grade-pill" style="{% if s.grade == 'A' %}background:#10b981;{% elif s.grade == 'B' %}background:#84cc16;{% elif s.grade == 'C' %}background:#f59e0b;{% elif s.grade == 'D' %}background:#f97316;{% else %}background:#ef4444;{% endif %}">
+                                Grade {{ s.grade }}
+                            </span>
+                        </td>
+                        <td><strong style="font-family:JetBrains Mono,monospace;">{{ s.risk_score }}/100</strong></td>
+                        <td style="font-size:0.85rem;">
+                            🔴 {{ s.high_count }} &nbsp; 🟡 {{ s.medium_count }} &nbsp; 🟢 {{ s.low_count }}
+                        </td>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:0.4rem;">
+                                <button type="button" class="tf-btn tf-btn-secondary btn-inspect-scan" style="padding:0.35rem 0.65rem;font-size:0.8rem;" data-id="{{ s.id }}">
+                                    🔎 View
+                                </button>
+                                <a href="{% url 'download_pdf' s.id %}" class="tf-btn tf-btn-primary" style="padding:0.35rem 0.65rem;font-size:0.8rem;">
+                                    📄 PDF
+                                </a>
+                                <button type="button" class="tf-btn tf-btn-danger btn-delete-scan" style="padding:0.35rem 0.65rem;font-size:0.8rem;" data-id="{{ s.id }}" data-target="{{ s.target }}">
+                                    🗑️
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Tab 2: Trend Analytics -->
+<div id="hist-tab-trend" class="tf-tab-pane">
+    <div class="glass-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+            <div>
+                <h3 style="font-size:1.1rem;font-weight:700;">Target Risk Score Trend</h3>
+                <p style="font-size:0.85rem;color:var(--text-secondary);">Select a target to see how its risk score changed over successive audits.</p>
+            </div>
+            <div>
+                <select id="trend-target-select" class="tf-input" style="min-width:250px;" onchange="renderTrendChart()">
+                    {% for t in targets %}
+                    <option value="{{ t }}">{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div id="trend-chart-container" style="background:rgba(8,12,20,0.6);border:1px solid var(--border-color);border-radius:10px;padding:1.5rem;text-align:center;">
+            <canvas id="trendCanvas" width="900" height="320" style="max-width:100%;height:auto;"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Tab 3: Compare Two Scans -->
+<div id="hist-tab-compare" class="tf-tab-pane">
+    <div class="glass-card">
+        <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.3rem;">Side-by-Side Scan Diff Comparison</h3>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1.25rem;">Compare two scans of the same target to inspect fixed vs. newly introduced vulnerabilities.</p>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;">
+            <div>
+                <label class="tf-label" for="comp-scan-1">Baseline (Older) Scan</label>
+                <select id="comp-scan-1" class="tf-input" onchange="runScanComparison()">
+                    {% for s in scans %}
+                    <option value="{{ s.id }}">#{{ s.id }} &middot; {{ s.started_at }} &middot; {{ s.target }} (Score {{ s.risk_score }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="tf-label" for="comp-scan-2">Comparison (Newer) Scan</label>
+                <select id="comp-scan-2" class="tf-input" onchange="runScanComparison()">
+                    {% for s in scans %}
+                    <option value="{{ s.id }}" {% if forloop.first %}selected{% endif %}>#{{ s.id }} &middot; {{ s.started_at }} &middot; {{ s.target }} (Score {{ s.risk_score }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div id="comp-metrics-row" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+            <div class="tf-metric-card">
+                <div class="tf-metric-label">Risk Score Delta</div>
+                <div id="comp-score-delta" class="tf-metric-val">0</div>
+            </div>
+            <div class="tf-metric-card">
+                <div class="tf-metric-label">✅ Fixed Findings</div>
+                <div id="comp-fixed-count" class="tf-metric-val" style="color:var(--success);">0</div>
+            </div>
+            <div class="tf-metric-card">
+                <div class="tf-metric-label">⚠️ New Findings</div>
+                <div id="comp-new-count" class="tf-metric-val" style="color:var(--danger);">0</div>
+            </div>
+        </div>
+
+        <div id="comp-results-grid" style="display:none;grid-template-columns:1fr 1fr;gap:1.25rem;">
+            <div>
+                <h4 style="color:var(--success);font-size:0.95rem;margin-bottom:0.75rem;">✅ Resolved / Fixed Vulnerabilities</h4>
+                <div id="comp-fixed-list"></div>
+            </div>
+            <div>
+                <h4 style="color:var(--danger);font-size:0.95rem;margin-bottom:0.75rem;">⚠️ Newly Introduced Vulnerabilities</h4>
+                <div id="comp-new-list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal / Inspector for Viewing Saved Report -->
+<div id="inspect-modal" class="glass-card" style="display:none;margin-top:2rem;border-color:var(--accent);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;border-bottom:1px solid var(--border-color);padding-bottom:0.75rem;">
+        <h3 id="inspect-title" style="font-size:1.15rem;font-weight:700;">Saved Scan Report</h3>
+        <button type="button" class="tf-btn tf-btn-secondary" style="padding:0.35rem 0.75rem;" onclick="closeInspector()">✖ Close</button>
+    </div>
+    <div id="inspect-content"></div>
+</div>
+{% endif %}
+
+{{ scans_json|json_script:"scans-data" }}
+<script>
+const ALL_SCANS_DATA = JSON.parse(document.getElementById('scans-data')?.textContent || '[]');
+
+function switchHistTab(tabId) {
+    document.querySelectorAll('.tf-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tf-tab-pane').forEach(p => p.classList.remove('active'));
+
+    if (tabId === 'list') {
+        document.querySelectorAll('.tf-tab-btn')[0].classList.add('active');
+        document.getElementById('hist-tab-list').classList.add('active');
+    } else if (tabId === 'trend') {
+        document.querySelectorAll('.tf-tab-btn')[1].classList.add('active');
+        document.getElementById('hist-tab-trend').classList.add('active');
+        renderTrendChart();
+    } else if (tabId === 'compare') {
+        document.querySelectorAll('.tf-tab-btn')[2].classList.add('active');
+        document.getElementById('hist-tab-compare').classList.add('active');
+        runScanComparison();
+    }
+}
+
+async function inspectScan(scanId) {
+    const modal = document.getElementById('inspect-modal');
+    const content = document.getElementById('inspect-content');
+    const title = document.getElementById('inspect-title');
+
+    modal.style.display = 'block';
+    modal.scrollIntoView({ behavior: 'smooth' });
+    content.innerHTML = '<div style="text-align:center;padding:2rem;">⏳ Loading report...</div>';
+
+    try {
+        const res = await fetch(`/api/scan/${scanId}/`);
+        const json = await res.json();
+        if (!json.ok) {
+            content.innerHTML = `<div class="tf-alert tf-alert-danger">Failed to load: ${json.error}</div>`;
+            return;
+        }
+
+        const scan = json.scan;
+        const rep = json.report;
+        title.innerHTML = `Saved Scan #${scan.id} &middot; <code style="color:#a5b4fc;">${scan.target}</code>`;
+
+        let html = `
+            <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+                <span class="grade-pill" style="background:#6366f1;">Grade ${scan.grade}</span>
+                <span style="font-family:JetBrains Mono,monospace;font-size:0.95rem;">Risk Score: <strong>${scan.risk_score}/100</strong></span>
+                <span style="color:var(--text-secondary);font-size:0.85rem;">Date: ${scan.started_at}</span>
+                <a href="/report/${scan.id}/pdf/" class="tf-btn tf-btn-primary" style="margin-left:auto;padding:0.4rem 0.9rem;font-size:0.85rem;">📄 Download PDF</a>
+            </div>
+            <div style="font-size:0.95rem;font-weight:700;margin-bottom:0.75rem;">Findings (${(rep.findings || []).length})</div>
+        `;
+
+        if (!rep.findings || rep.findings.length === 0) {
+            html += '<div style="color:var(--success);padding:1rem 0;">✅ No vulnerabilities detected in this scan.</div>';
+        } else {
+            rep.findings.forEach((f, idx) => {
+                const sevCls = f.severity === 'High' ? 'badge-high' : (f.severity === 'Medium' ? 'badge-medium' : 'badge-low');
+                html += `
+                    <div class="finding-card">
+                        <div class="finding-header">
+                            <span class="finding-type">#${idx+1} &middot; ${escapeHtml(f.type)}</span>
+                            <span class="badge ${sevCls}">${escapeHtml(f.severity)}</span>
+                        </div>
+                        <div class="finding-detail">${escapeHtml(f.detail)}</div>
+                        <div class="finding-meta">
+                            ${f.field && f.field !== 'N/A' ? `<span>📌 Field: <strong>${escapeHtml(f.field)}</strong></span>` : ''}
+                            ${f.payload && f.payload !== 'N/A' ? `<span>💣 Payload: <code>${escapeHtml(f.payload)}</code></span>` : ''}
+                            ${f.evidence && f.evidence !== 'N/A' ? `<span>🔎 Evidence: <code>${escapeHtml(f.evidence.slice(0, 140))}</code></span>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        content.innerHTML = html;
+    } catch (err) {
+        content.innerHTML = `<div class="tf-alert tf-alert-danger">Error fetching scan: ${err}</div>`;
+    }
+}
+
+function closeInspector() {
+    document.getElementById('inspect-modal').style.display = 'none';
+}
+
+async function confirmDeleteScan(scanId, target) {
+    if (!confirm(`Are you sure you want to permanently delete scan #${scanId} (${target})?`)) return;
+
+    try {
+        const res = await fetch(`/api/scan/${scanId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        const json = await res.json();
+        if (json.ok) {
+            const row = document.getElementById(`scan-row-${scanId}`);
+            if (row) row.remove();
+        } else {
+            alert('Failed to delete: ' + json.error);
+        }
+    } catch (e) {
+        alert('Network error: ' + e);
+    }
+}
+
+function renderTrendChart() {
+    const sel = document.getElementById('trend-target-select');
+    if (!sel) return;
+    const target = sel.value;
+    const targetScans = ALL_SCANS_DATA.filter(s => s.target === target).reverse();
+
+    const canvas = document.getElementById('trendCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (targetScans.length < 1) {
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '14px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('No scans available for this target', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+
+    // Draw Dark Cyber Chart
+    const padding = 50;
+    const w = canvas.width - padding * 2;
+    const h = canvas.height - padding * 2;
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    for (let y = 0; y <= 100; y += 25) {
+        const py = padding + h - (y / 100) * h;
+        ctx.beginPath();
+        ctx.moveTo(padding, py);
+        ctx.lineTo(padding + w, py);
+        ctx.stroke();
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '11px JetBrains Mono, monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(y.toString(), padding - 10, py + 4);
+    }
+
+    if (targetScans.length === 1) {
+        const s = targetScans[0];
+        const py = padding + h - (s.risk_score / 100) * h;
+        ctx.fillStyle = '#6366f1';
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, py, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '13px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Single scan: Score ${s.risk_score} (Grade ${s.grade})`, canvas.width / 2, py - 15);
+        return;
+    }
+
+    // Connect line
+    const points = targetScans.map((s, idx) => {
+        const px = padding + (idx / (targetScans.length - 1)) * w;
+        const py = padding + h - (s.risk_score / 100) * h;
+        return { x: px, y: py, scan: s };
+    });
+
+    // Gradient fill under line
+    const grad = ctx.createLinearGradient(0, padding, 0, padding + h);
+    grad.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
+    grad.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    points.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(points[points.length - 1].x, padding + h);
+    ctx.lineTo(points[0].x, padding + h);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Line stroke
+    ctx.strokeStyle = '#818cf8';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    points.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.stroke();
+
+    // Point dots
+    points.forEach(p => {
+        ctx.fillStyle = '#6366f1';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '11px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${p.scan.risk_score}`, p.x, p.y - 12);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '9px Inter, sans-serif';
+        ctx.fillText(`#${p.scan.id}`, p.x, padding + h + 18);
+    });
+}
+
+async function runScanComparison() {
+    const s1Id = document.getElementById('comp-scan-1').value;
+    const s2Id = document.getElementById('comp-scan-2').value;
+
+    const row = document.getElementById('comp-metrics-row');
+    const grid = document.getElementById('comp-results-grid');
+    const fixedList = document.getElementById('comp-fixed-list');
+    const newList = document.getElementById('comp-new-list');
+
+    try {
+        const [r1, r2] = await Promise.all([
+            fetch(`/api/scan/${s1Id}/`).then(res => res.json()),
+            fetch(`/api/scan/${s2Id}/`).then(res => res.json())
+        ]);
+
+        if (!r1.ok || !r2.ok) return;
+
+        const f1 = r1.report.findings || [];
+        const f2 = r2.report.findings || [];
+
+        const sig = f => `${f.type}|${f.field || ''}|${f.payload || ''}`;
+        const map1 = new Map(f1.map(f => [sig(f), f]));
+        const map2 = new Map(f2.map(f => [sig(f), f]));
+
+        const fixed = f1.filter(f => !map2.has(sig(f)));
+        const newlyAdded = f2.filter(f => !map1.has(sig(f)));
+        const delta = (r2.scan.risk_score || 0) - (r1.scan.risk_score || 0);
+
+        row.style.display = 'grid';
+        grid.style.display = 'grid';
+
+        const deltaEl = document.getElementById('comp-score-delta');
+        deltaEl.innerText = `${delta > 0 ? '+' : ''}${delta}`;
+        deltaEl.style.color = delta <= 0 ? 'var(--success)' : 'var(--danger)';
+
+        document.getElementById('comp-fixed-count').innerText = fixed.length;
+        document.getElementById('comp-new-count').innerText = newlyAdded.length;
+
+        fixedList.innerHTML = fixed.length === 0 ? '<div style="color:var(--text-muted);font-size:0.85rem;">No resolved findings.</div>' :
+            fixed.map(f => `<div class="finding-card"><div class="finding-header"><span class="finding-type">${escapeHtml(f.type)}</span><span class="badge badge-low">Resolved</span></div><div class="finding-detail">${escapeHtml(f.detail)}</div></div>`).join('');
+
+        newList.innerHTML = newlyAdded.length === 0 ? '<div style="color:var(--text-muted);font-size:0.85rem;">No new findings.</div>' :
+            newlyAdded.map(f => `<div class="finding-card"><div class="finding-header"><span class="finding-type">${escapeHtml(f.type)}</span><span class="badge badge-high">New</span></div><div class="finding-detail">${escapeHtml(f.detail)}</div></div>`).join('');
+
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+document.addEventListener('click', function(e) {
+    const inspBtn = e.target.closest('.btn-inspect-scan');
+    if (inspBtn && inspBtn.dataset.id) {
+        inspectScan(inspBtn.dataset.id);
+        return;
+    }
+    const delBtn = e.target.closest('.btn-delete-scan');
+    if (delBtn && delBtn.dataset.id) {
+        confirmDeleteScan(delBtn.dataset.id, delBtn.dataset.target || '');
+        return;
+    }
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
+
