@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Audit History &amp; Analytics — ThreatForge{% endblock %}
+{% block body_class %}history-shell{% endblock %}
 
 {% block container_class %}tf-container-wide{% endblock %}
 
@@ -88,18 +89,18 @@
                         </td>
                         <td><strong style="font-family:JetBrains Mono,monospace;">{{ s.risk_score }}/100</strong></td>
                         <td style="font-size:0.85rem;">
-                            🔴 {{ s.high_count }} &nbsp; 🟡 {{ s.medium_count }} &nbsp; 🟢 {{ s.low_count }}
+                            High {{ s.high_count }} &nbsp; Medium {{ s.medium_count }} &nbsp; Low {{ s.low_count }}
                         </td>
                         <td>
                             <div style="display:flex;align-items:center;gap:0.4rem;">
                                 <button type="button" class="tf-btn tf-btn-secondary btn-inspect-scan" style="padding:0.35rem 0.65rem;font-size:0.8rem;" data-id="{{ s.id }}">
-                                    🔎 View
+                                    View
                                 </button>
                                 <a href="{% url 'download_pdf' s.id %}" class="tf-btn tf-btn-primary" style="padding:0.35rem 0.65rem;font-size:0.8rem;">
-                                    📄 PDF
+                                    PDF
                                 </a>
                                 <button type="button" class="tf-btn tf-btn-danger btn-delete-scan" style="padding:0.35rem 0.65rem;font-size:0.8rem;" data-id="{{ s.id }}" data-target="{{ s.target }}">
-                                    🗑️
+                                    Delete
                                 </button>
                             </div>
                         </td>
@@ -164,22 +165,22 @@
                 <div id="comp-score-delta" class="tf-metric-val">0</div>
             </div>
             <div class="tf-metric-card">
-                <div class="tf-metric-label">✅ Fixed Findings</div>
+                <div class="tf-metric-label">Fixed findings</div>
                 <div id="comp-fixed-count" class="tf-metric-val" style="color:var(--success);">0</div>
             </div>
             <div class="tf-metric-card">
-                <div class="tf-metric-label">⚠️ New Findings</div>
+                <div class="tf-metric-label">New findings</div>
                 <div id="comp-new-count" class="tf-metric-val" style="color:var(--danger);">0</div>
             </div>
         </div>
 
         <div id="comp-results-grid" style="display:none;grid-template-columns:1fr 1fr;gap:1.25rem;">
             <div>
-                <h4 style="color:var(--success);font-size:0.95rem;margin-bottom:0.75rem;">✅ Resolved / Fixed Vulnerabilities</h4>
+                <h4 style="color:var(--success);font-size:0.95rem;margin-bottom:0.75rem;">Resolved vulnerabilities</h4>
                 <div id="comp-fixed-list"></div>
             </div>
             <div>
-                <h4 style="color:var(--danger);font-size:0.95rem;margin-bottom:0.75rem;">⚠️ Newly Introduced Vulnerabilities</h4>
+                <h4 style="color:var(--danger);font-size:0.95rem;margin-bottom:0.75rem;">New vulnerabilities</h4>
                 <div id="comp-new-list"></div>
             </div>
         </div>
@@ -190,7 +191,7 @@
 <div id="inspect-modal" class="glass-card" style="display:none;margin-top:2rem;border-color:var(--accent);">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;border-bottom:1px solid var(--border-color);padding-bottom:0.75rem;">
         <h3 id="inspect-title" style="font-size:1.15rem;font-weight:700;">Saved Scan Report</h3>
-        <button type="button" class="tf-btn tf-btn-secondary" style="padding:0.35rem 0.75rem;" onclick="closeInspector()">✖ Close</button>
+        <button type="button" class="tf-btn tf-btn-secondary" style="padding:0.35rem 0.75rem;" onclick="closeInspector()">Close</button>
     </div>
     <div id="inspect-content"></div>
 </div>
@@ -225,7 +226,7 @@ async function inspectScan(scanId) {
 
     modal.style.display = 'block';
     modal.scrollIntoView({ behavior: 'smooth' });
-    content.innerHTML = '<div style="text-align:center;padding:2rem;">⏳ Loading report...</div>';
+    content.innerHTML = '<div style="text-align:center;padding:2rem;">Loading report…</div>';
 
     try {
         const res = await fetch(`/api/scan/${scanId}/`);
@@ -244,13 +245,13 @@ async function inspectScan(scanId) {
                 <span class="grade-pill" style="background:#6366f1;">Grade ${scan.grade}</span>
                 <span style="font-family:JetBrains Mono,monospace;font-size:0.95rem;">Risk Score: <strong>${scan.risk_score}/100</strong></span>
                 <span style="color:var(--text-secondary);font-size:0.85rem;">Date: ${scan.started_at}</span>
-                <a href="/report/${scan.id}/pdf/" class="tf-btn tf-btn-primary" style="margin-left:auto;padding:0.4rem 0.9rem;font-size:0.85rem;">📄 Download PDF</a>
+                <a href="/report/${scan.id}/pdf/" class="tf-btn tf-btn-primary" style="margin-left:auto;padding:0.4rem 0.9rem;font-size:0.85rem;">Download PDF</a>
             </div>
             <div style="font-size:0.95rem;font-weight:700;margin-bottom:0.75rem;">Findings (${(rep.findings || []).length})</div>
         `;
 
         if (!rep.findings || rep.findings.length === 0) {
-            html += '<div style="color:var(--success);padding:1rem 0;">✅ No vulnerabilities detected in this scan.</div>';
+            html += '<div style="color:var(--success);padding:1rem 0;">No vulnerabilities detected in this scan.</div>';
         } else {
             rep.findings.forEach((f, idx) => {
                 const sevCls = f.severity === 'High' ? 'badge-high' : (f.severity === 'Medium' ? 'badge-medium' : 'badge-low');
@@ -262,9 +263,9 @@ async function inspectScan(scanId) {
                         </div>
                         <div class="finding-detail">${escapeHtml(f.detail)}</div>
                         <div class="finding-meta">
-                            ${f.field && f.field !== 'N/A' ? `<span>📌 Field: <strong>${escapeHtml(f.field)}</strong></span>` : ''}
-                            ${f.payload && f.payload !== 'N/A' ? `<span>💣 Payload: <code>${escapeHtml(f.payload)}</code></span>` : ''}
-                            ${f.evidence && f.evidence !== 'N/A' ? `<span>🔎 Evidence: <code>${escapeHtml(f.evidence.slice(0, 140))}</code></span>` : ''}
+                            ${f.field && f.field !== 'N/A' ? `<span>Field: <strong>${escapeHtml(f.field)}</strong></span>` : ''}
+                            ${f.payload && f.payload !== 'N/A' ? `<span>Payload: <code>${escapeHtml(f.payload)}</code></span>` : ''}
+                            ${f.evidence && f.evidence !== 'N/A' ? `<span>Evidence: <code>${escapeHtml(f.evidence.slice(0, 140))}</code></span>` : ''}
                         </div>
                     </div>
                 `;

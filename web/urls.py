@@ -10,6 +10,9 @@ urlpatterns = [
     path("scan/", views.scan_view, name="scan"),
     path("profile/", views.profile_view, name="profile"),
     path("login/", views.login_view, name="login"),
+    path("password/forgot/", views.forgot_password_view, name="forgot_password"),
+    path("password/reset/<str:token>/", views.reset_password_view, name="reset_password"),
+    path("terms/", views.terms_view, name="terms"),
     path("logout/", views.logout_view, name="logout"),
     path("history/", views.history_view, name="history"),
     path("admin-panel/", views.admin_panel_view, name="admin_panel"),
@@ -19,6 +22,10 @@ urlpatterns = [
     path("api/scan/<int:scan_id>/", views.api_scan_detail, name="api_scan_detail"),
     path("api/scan/<int:scan_id>/delete/", views.api_delete_scan, name="api_delete_scan"),
     path("api/admin/user-action/", views.admin_user_action, name="admin_user_action"),
+    path("api/admin/user-edit/", views.admin_user_edit, name="admin_user_edit"),
+    path("api/admin/scan-activity/", views.admin_scan_activity, name="admin_scan_activity"),
+    path("api/admin/database/", views.admin_database_preview, name="admin_database_preview"),
+    path("admin-panel/export-dataset/", views.admin_export_dataset, name="admin_export_dataset"),
     path("api/user/change-password/", views.api_change_password, name="api_change_password"),
 
     # Downloads

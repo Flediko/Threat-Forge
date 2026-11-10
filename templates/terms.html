@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Terms of Use — ThreatForge{% endblock %}
+{% block body_class %}legal-shell{% endblock %}
+
+{% block content %}
+<article class="legal-page">
+    <p class="legal-kicker">THREATFORGE / TERMS OF USE</p>
+    <h1>Terms of Use</h1>
+    <p class="legal-updated">Version 1.0 · Effective November 6, 2026</p>
+    <p>ThreatForge is an educational application security project. By creating an account or using the service, you agree to these terms.</p>
+
+    <h2>Authorized security testing</h2>
+    <p>Only scan websites, applications, and systems that you own or have clear permission to test. You are responsible for confirming the scope and limits of that permission before starting a scan.</p>
+    <p>Do not use ThreatForge to disrupt systems, access data without permission, bypass access controls, or violate applicable laws or third-party terms.</p>
+
+    <h2>Account responsibility</h2>
+    <p>Keep your credentials secure and use accurate account information. You are responsible for activity performed through your account. Contact the administrator if you believe an account has been accessed without permission.</p>
+
+    <h2>Service and scan results</h2>
+    <p>ThreatForge is provided for learning and authorized testing. Scan results are automated indicators and may be incomplete or incorrect. They are not a guarantee that a system is secure or vulnerable, and should be reviewed by a qualified person before acting on them.</p>
+
+    <h2>Data and retention</h2>
+    <p>The application stores account details, scan targets, scan results, and operational activity to provide the service. Administrators can manage accounts and export operational datasets. Do not submit secrets or personal information that is not necessary for an authorized scan.</p>
+
+    <h2>Access and availability</h2>
+    <p>Administrators may suspend accounts or access to protect the service and its users. The project may change or become unavailable as it is developed.</p>
+
+    <h2>Contact</h2>
+    <p>For account questions or to report a concern, contact the ThreatForge administrator through your organization or project team.</p>
+
+    <a class="tf-btn tf-btn-secondary legal-back-link" href="{% url 'login' %}">Back to sign in</a>
+</article>
+{% endblock %}

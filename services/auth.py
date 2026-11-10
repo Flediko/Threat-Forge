@@ -71,16 +71,10 @@ def verify_password(password: str, expected_hash_hex: str, salt_hex: str) -> boo
         return False
 
 
-def validate_registration_input(
-    username: str, email: str, password: str
-) -> str | None:
-    """
-    Validate username, email, and password policy.
-    Returns an error message string if invalid, or ``None`` when valid.
-    """
+def validate_user_identity(username: str, email: str) -> str | None:
+    """Validate account identity fields without requiring a password."""
     uname = (username or "").strip()
     mail = (email or "").strip()
-    pwd = password or ""
 
     if not _USERNAME_RE.match(uname):
         return (
@@ -89,6 +83,21 @@ def validate_registration_input(
         )
     if not _EMAIL_RE.match(mail) or len(mail) > 254:
         return "Please enter a valid email address."
+    return None
+
+
+def validate_registration_input(
+    username: str, email: str, password: str
+) -> str | None:
+    """
+    Validate username, email, and password policy.
+    Returns an error message string if invalid, or ``None`` when valid.
+    """
+    pwd = password or ""
+
+    identity_error = validate_user_identity(username, email)
+    if identity_error:
+        return identity_error
     if len(pwd) < 10:
         return "Password must be at least 10 characters long."
     if not any(ch.isalpha() for ch in pwd) or not any(ch.isdigit() for ch in pwd):
@@ -101,6 +110,7 @@ def register_user(
     email: str,
     password: str,
     db_path: str | Path | None = None,
+    terms_version: str | None = None,
 ) -> dict:
     """
     Register a new standard user account (always assigned role ``"user"``).
@@ -135,7 +145,7 @@ def register_user(
         action="register",
         user_id=user_id,
         username=uname,
-        detail=f"New user registered ({mail})",
+        detail=f"New user registered ({mail})" + (f"; accepted Terms of Use v{terms_version}" if terms_version else ""),
         db_path=db_path,
     )
     return {"ok": True, "user_id": user_id, "error": None}

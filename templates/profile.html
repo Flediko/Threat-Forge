@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}User Profile &amp; Security Summary — ThreatForge{% endblock %}
+{% block body_class %}profile-shell{% endblock %}
 
 {% block container_class %}tf-container-wide{% endblock %}
 
@@ -21,11 +22,11 @@
                     {% endif %}
                 </div>
                 <div class="profile-meta-sub">
-                    <span>📧 {{ user.email }}</span>
+                    <span>{{ user.email }}</span>
                     <span>&middot;</span>
-                    <span>🛡️ PBKDF2-SHA256 Encrypted</span>
+                    <span>PBKDF2-SHA256</span>
                     <span>&middot;</span>
-                    <span>🕒 Last Active: {{ user.last_login_at|slice:":16"|default:"Recently" }}</span>
+                    <span>Last active {{ user.last_login_at|slice:":16"|default:"Recently" }}</span>
                 </div>
             </div>
         </div>
@@ -72,7 +73,7 @@
         <!-- 4. Best Score & Grade -->
         <div class="tf-metric-card">
             <div class="tf-metric-label" style="display:flex;align-items:center;gap:0.35rem;">
-                <span style="color:#10b981;">●</span> Best Audit Score
+                Best Audit Score
             </div>
             <div class="tf-metric-val" style="color:#10b981;display:flex;align-items:baseline;gap:0.5rem;">
                 <span>{{ best_score }}</span>
@@ -86,7 +87,7 @@
         <!-- 5. Worst Score & Grade -->
         <div class="tf-metric-card">
             <div class="tf-metric-label" style="display:flex;align-items:center;gap:0.35rem;">
-                <span style="color:#f59e0b;">●</span> Worst Audit Score
+                Worst Audit Score
             </div>
             <div class="tf-metric-val" style="color:#f59e0b;display:flex;align-items:baseline;gap:0.5rem;">
                 <span>{{ worst_score }}</span>

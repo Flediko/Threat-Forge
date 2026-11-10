@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}Vulnerability Scanner — ThreatForge{% endblock %}
+{% block body_class %}scan-shell{% endblock %}
 
 {% block container_class %}tf-container-wide{% endblock %}
 
@@ -49,7 +50,7 @@
                             </div>
                             <div id="minimal-target-display" class="minimal-target-url">http://target...</div>
                             <div class="minimal-scan-tags">
-                                <span id="minimal-duration-tag">⏱️ 0.0s</span>
+                                <span id="minimal-duration-tag">0.0s</span>
                                 <span>&middot;</span>
                                 <span id="minimal-summary-tag">0 issues detected</span>
                             </div>
@@ -132,15 +133,15 @@
                 </div>
 
                 <div class="tf-cov-grid">
-                    <div class="tf-cov-item"><span>💉 SQL Injection</span><span class="badge badge-high">High Impact</span></div>
-                    <div class="tf-cov-item"><span>🧬 Cross-Site Scripting (XSS)</span><span class="badge badge-high">High Impact</span></div>
-                    <div class="tf-cov-item"><span>💻 Command Injection</span><span class="badge badge-high">High Impact</span></div>
-                    <div class="tf-cov-item"><span>🔒 Security Headers</span><span class="badge badge-medium">Medium</span></div>
-                    <div class="tf-cov-item"><span>🍪 Insecure Cookie Flags</span><span class="badge badge-medium">Medium</span></div>
-                    <div class="tf-cov-item"><span>🖼️ Clickjacking Defenses</span><span class="badge badge-medium">Medium</span></div>
-                    <div class="tf-cov-item"><span>🛡️ CSRF Token Protections</span><span class="badge badge-medium">Medium</span></div>
-                    <div class="tf-cov-item"><span>📂 Open Directory Listings</span><span class="badge badge-medium">Medium</span></div>
-                    <div class="tf-cov-item"><span>🔑 Brute-Force Rate Limiting</span><span class="badge badge-medium">Medium</span></div>
+                    <div class="tf-cov-item"><span>SQL injection</span><span class="badge badge-high">High impact</span></div>
+                    <div class="tf-cov-item"><span>Cross-site scripting (XSS)</span><span class="badge badge-high">High impact</span></div>
+                    <div class="tf-cov-item"><span>Command injection</span><span class="badge badge-high">High impact</span></div>
+                    <div class="tf-cov-item"><span>Security headers</span><span class="badge badge-medium">Medium</span></div>
+                    <div class="tf-cov-item"><span>Insecure cookie flags</span><span class="badge badge-medium">Medium</span></div>
+                    <div class="tf-cov-item"><span>Clickjacking defenses</span><span class="badge badge-medium">Medium</span></div>
+                    <div class="tf-cov-item"><span>CSRF token protections</span><span class="badge badge-medium">Medium</span></div>
+                    <div class="tf-cov-item"><span>Open directory listings</span><span class="badge badge-medium">Medium</span></div>
+                    <div class="tf-cov-item"><span>Brute-force rate limiting</span><span class="badge badge-medium">Medium</span></div>
                 </div>
             </div>
 
@@ -151,12 +152,12 @@
                     <span>Quick Target Presets (Click to autofill)</span>
                 </div>
                 <div class="quick-chips-wrap">
-                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://127.0.0.1:8001/')">🚨 Site 1: SQLi / XSS / CMDi (8001)</button>
-                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://127.0.0.1:8002/')">⚠️ Site 2: Moderate CSRF/XSS (8002)</button>
-                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://127.0.0.1:8003/')">🛡️ Site 3: Hardened Fortress (8003)</button>
-                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://127.0.0.1:8004/')">📂 Site 4: Open Directory (8004)</button>
-                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://localhost/dvwa/login.php')">📌 DVWA Login</button>
-                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://testphp.vulnweb.com/listproducts.php?cat=1')">📌 Testphp VulnWeb</button>
+                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://127.0.0.1:8001/')">Site 1 · SQLi, XSS, CMDi</button>
+                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://127.0.0.1:8002/')">Site 2 · CSRF, XSS</button>
+                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://127.0.0.1:8003/')">Site 3 · Hardened</button>
+                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://127.0.0.1:8004/')">Site 4 · Directory listing</button>
+                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://localhost/dvwa/login.php')">DVWA login</button>
+                    <button type="button" class="quick-chip" onclick="setTargetPreset('http://testphp.vulnweb.com/listproducts.php?cat=1')">TestPHP VulnWeb</button>
                 </div>
             </div>
         </div>
@@ -272,7 +273,7 @@
                         <!-- Mode 1: Low -->
                         <div id="mode-card-low" class="scan-mode-card mode-low" onclick="selectScanMode('low')">
                             <div class="scan-mode-title" style="color:#10b981;">
-                                <span>🟢</span><span>Low</span>
+                                <span>Low</span>
                             </div>
                             <span class="scan-mode-tag badge-low">Passive (~10s)</span>
                             <div class="scan-mode-desc">Passive headers, cookies &amp; clickjacking</div>
@@ -281,7 +282,7 @@
                         <!-- Mode 2: Mid (Default) -->
                         <div id="mode-card-mid" class="scan-mode-card mode-mid active" onclick="selectScanMode('mid')">
                             <div class="scan-mode-title" style="color:#f59e0b;">
-                                <span>🟡</span><span>Mid</span>
+                                <span>Balanced</span>
                             </div>
                             <span class="scan-mode-tag badge-medium">Balanced (~25s)</span>
                             <div class="scan-mode-desc">Passive suite + CSRF &amp; form checks</div>
@@ -290,7 +291,7 @@
                         <!-- Mode 3: High -->
                         <div id="mode-card-high" class="scan-mode-card mode-high" onclick="selectScanMode('high')">
                             <div class="scan-mode-title" style="color:#f87171;">
-                                <span>🔴</span><span>High</span>
+                                <span>Deep</span>
                             </div>
                             <span class="scan-mode-tag badge-high">Deep (~45s)</span>
                             <div class="scan-mode-desc">All 9 engines incl. SQLi, XSS &amp; CMDI</div>
@@ -302,7 +303,7 @@
                 <!-- Engine Checklist Matrix -->
                 <details class="engine-checklist-box" style="margin-bottom:1.15rem;">
                     <summary style="font-size:0.82rem;font-weight:700;color:var(--text-secondary);cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;">
-                        <span>🧩 Active Engines Matrix (<span id="active-engines-count">8</span>/9)</span>
+                        <span>Active engine checks (<span id="active-engines-count">8</span>/9)</span>
                         <span style="font-size:0.75rem;color:var(--cyan);">Customize</span>
                     </summary>
                     <div style="margin-top:0.65rem;display:flex;flex-direction:column;gap:0.25rem;">

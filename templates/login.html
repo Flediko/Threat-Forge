@@ -1,8 +1,17 @@
 {% extends "base.html" %}
 
 {% block title %}Authentication Portal — ThreatForge{% endblock %}
+{% block body_class %}auth-shell{% endblock %}
 
 {% block content %}
+{% if logout_success %}
+<div class="auth-toast" role="status" aria-live="polite" data-auth-toast>
+    <span class="auth-toast-mark" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none"><path d="m5 10 3.2 3.2L15.5 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span class="auth-toast-message"><strong>Signed out</strong><span>{{ logout_success }}</span></span>
+    <button type="button" class="auth-toast-close" aria-label="Dismiss notification" data-dismiss-toast>×</button>
+    <span class="auth-toast-timer" aria-hidden="true"></span>
+</div>
+{% endif %}
 <div class="auth-page-container">
     <div class="auth-glass-card glass-card">
         <!-- Brand Header with Shield Emblem -->
@@ -16,14 +25,6 @@
             <h1 class="auth-title">ThreatForge</h1>
             <p class="auth-subtitle">Enterprise Vulnerability &amp; Application Security Portal</p>
         </div>
-
-        <!-- Session Logout Confirmation Message -->
-        {% if logout_success %}
-        <div class="tf-alert tf-alert-success" role="alert" style="margin-bottom:1rem;">
-            <svg class="tf-icon tf-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            <div><strong>Session Terminated:</strong> {{ logout_success }}</div>
-        </div>
-        {% endif %}
 
         {% if login_error %}
         <div class="tf-alert tf-alert-danger" role="alert" style="margin-bottom:1rem;">
@@ -76,19 +77,21 @@
                 <div class="tf-form-group">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem;">
                         <label class="tf-label" for="login-pwd" style="margin-bottom:0;">Access Key / Password</label>
-                        <span style="font-size:0.75rem;color:var(--text-muted);">5 attempts before lock</span>
                     </div>
                     <div style="position:relative;">
                         <input type="password" id="login-pwd" name="password" class="tf-input" placeholder="Enter password" required style="padding-left:2.4rem;padding-right:2.4rem;">
                         <svg class="tf-icon tf-icon-sm input-icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                        <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('login-pwd', this)" title="Show/Hide Password">
-                            👁️
+                        <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('login-pwd', this)" title="Show password" aria-pressed="false" aria-label="Show password">
+                            <svg class="eye-icon eye-open" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                            <svg class="eye-icon eye-closed" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a16 16 0 0 1-3.1 3.8M6.2 6.2C3.6 8 2 12 2 12s3.6 7 10 7c1 0 2-.2 2.8-.5"/></svg>
                         </button>
                     </div>
                 </div>
 
+                <div class="auth-form-tools"><a href="{% url 'forgot_password' %}">Forgot password?</a><span>5 attempts before temporary lock</span></div>
+
                 <button type="submit" class="tf-btn tf-btn-primary tf-btn-block" style="padding:0.85rem;font-size:0.96rem;margin-top:1.25rem;">
-                    <span>Authenticate &amp; Access Scanner &rarr;</span>
+                    <span>Continue to ThreatForge &rarr;</span>
                 </button>
             </form>
         </div>
@@ -119,6 +122,11 @@
                     <input type="password" id="reg-confirm" name="confirm_password" class="tf-input" placeholder="Repeat password" required>
                 </div>
 
+                <label class="auth-terms-check" for="agree-terms">
+                    <input type="checkbox" id="agree-terms" name="agree_terms" required>
+                    <span>I agree to the <a href="{% url 'terms' %}" target="_blank" rel="noopener">Terms of Use</a>.</span>
+                </label>
+
                 <button type="submit" class="tf-btn tf-btn-primary tf-btn-block" style="padding:0.85rem;font-size:0.96rem;margin-top:1.25rem;">
                     <span>Provision Account &rarr;</span>
                 </button>
@@ -128,9 +136,27 @@
         <!-- Security Guard Footer Note -->
         <div class="auth-footer-note">
             <svg class="tf-icon tf-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            <span>Secured with PBKDF2-HMAC-SHA256 (200k rounds) &middot; SOC Role Isolation</span>
+            <span>Passwords use salted PBKDF2-SHA256 hashing with 200,000 rounds.</span>
         </div>
     </div>
+
+    <aside class="auth-visual-panel" aria-label="ThreatForge security overview">
+        <div class="auth-visual-topline"><span class="auth-visual-kicker">ThreatForge</span><span class="auth-visual-status">Application security</span></div>
+        <div class="auth-visual-art" aria-hidden="true">
+            <div class="auth-orbit auth-orbit-outer"></div>
+            <div class="auth-orbit auth-orbit-middle"></div>
+            <div class="auth-orbit auth-orbit-inner"></div>
+            <svg class="auth-visual-shield" viewBox="0 0 120 140" fill="none">
+                <path d="M60 8 105 25v37c0 31-19 54-45 69C34 116 15 93 15 62V25L60 8Z" fill="url(#shieldFill)" stroke="#83d9d3" stroke-width="1.5"/>
+                <path d="M60 23 91 35v27c0 22-12 38-31 50C41 100 29 84 29 62V35l31-12Z" stroke="#83d9d3" stroke-opacity=".38"/>
+                <path d="m45 65 10 10 21-23" stroke="#b7f0e8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <defs><linearGradient id="shieldFill" x1="20" y1="10" x2="99" y2="128" gradientUnits="userSpaceOnUse"><stop stop-color="#1f555d" stop-opacity=".92"/><stop offset="1" stop-color="#15232e" stop-opacity=".92"/></linearGradient></defs>
+            </svg>
+            <span class="auth-art-node node-one"></span><span class="auth-art-node node-two"></span><span class="auth-art-node node-three"></span>
+        </div>
+        <div class="auth-visual-copy"><h2>Security checks for web applications.</h2><p>Review scan activity and findings. Administrators can manage users and reports.</p></div>
+        <div class="auth-visual-metrics"><div><span>CHECKS</span><strong>9 SCANNER MODULES</strong></div><div><span>REPORTS</span><strong>PDF AND CSV</strong></div><div><span>ACCESS</span><strong>USER AND ADMIN ROLES</strong></div></div>
+    </aside>
 </div>
 
 <script>
@@ -147,16 +173,30 @@ function switchAuthTab(tab) {
     }
 }
 
+const authToast = document.querySelector('[data-auth-toast]');
+if (authToast) {
+    const dismissToast = () => {
+        authToast.classList.add('is-leaving');
+        window.setTimeout(() => authToast.remove(), 220);
+    };
+    authToast.querySelector('[data-dismiss-toast]').addEventListener('click', dismissToast);
+    window.setTimeout(dismissToast, 5200);
+}
+
 
 function togglePasswordVisibility(inputId, btn) {
     const input = document.getElementById(inputId);
     if (!input) return;
     if (input.type === 'password') {
         input.type = 'text';
-        btn.innerText = '🔒';
+        btn.setAttribute('aria-pressed', 'true');
+        btn.title = 'Hide password';
+        btn.setAttribute('aria-label', 'Hide password');
     } else {
         input.type = 'password';
-        btn.innerText = '👁️';
+        btn.setAttribute('aria-pressed', 'false');
+        btn.title = 'Show password';
+        btn.setAttribute('aria-label', 'Show password');
     }
 }
 </script>

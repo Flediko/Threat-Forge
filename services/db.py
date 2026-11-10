@@ -7,7 +7,7 @@ supports SQLite fallback for offline unit tests.
 """
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import os
 from pathlib import Path
 import sqlite3
@@ -237,6 +237,25 @@ def init_db(db_path: str | Path | None = None) -> None:
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS scan_activity (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    username VARCHAR(100) NOT NULL,
+                    target VARCHAR(500) NOT NULL,
+                    scan_mode VARCHAR(16) NOT NULL,
+                    status VARCHAR(20) NOT NULL,
+                    progress VARCHAR(255) NOT NULL,
+                    started_at VARCHAR(50) NOT NULL,
+                    updated_at VARCHAR(50) NOT NULL,
+                    finished_at VARCHAR(50),
+                    scan_id INT,
+                    error TEXT,
+                    INDEX idx_scan_activity_status_started (status, started_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                """
+            )
     else:
         # SQLite mode (for test suites)
         with get_conn(db_path) as conn:
@@ -290,6 +309,24 @@ def init_db(db_path: str | Path | None = None) -> None:
                 """
             )
             conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS scan_activity (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    username TEXT NOT NULL,
+                    target TEXT NOT NULL,
+                    scan_mode TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    progress TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    finished_at TEXT,
+                    scan_id INTEGER,
+                    error TEXT
+                );
+                """
+            )
+            conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_scans_user_id ON scans(user_id);"
             )
             conn.execute(
@@ -297,6 +334,9 @@ def init_db(db_path: str | Path | None = None) -> None:
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_activity_created_at ON activity_log(created_at);"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_scan_activity_status_started ON scan_activity(status, started_at);"
             )
 
 
@@ -550,13 +590,90 @@ def list_all_scans(db_path: str | Path | None = None) -> list[dict]:
     with get_conn(db_path) as conn:
         rows = conn.execute(
             """
-            SELECT s.*, u.username
+            SELECT s.id, s.user_id, s.target, s.started_at, s.duration_sec,
+                   s.risk_score, s.grade, s.total_findings, s.high_count,
+                   s.medium_count, s.low_count, s.authorized_confirmed, u.username
             FROM scans s
             LEFT JOIN users u ON u.id = s.user_id
             ORDER BY s.started_at DESC, s.id DESC;
             """
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def start_scan_activity(
+    user_id: int,
+    username: str,
+    target: str,
+    scan_mode: str,
+    db_path: str | Path | None = None,
+) -> int:
+    """Persist a scan's live status so administrators can monitor it."""
+    now = utc_now_iso()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with get_conn(db_path) as conn:
+        conn.execute(
+            "DELETE FROM scan_activity WHERE status != 'running' AND finished_at < ?;",
+            (cutoff,),
+        )
+        cur = conn.execute(
+            """
+            INSERT INTO scan_activity (
+                user_id, username, target, scan_mode, status, progress,
+                started_at, updated_at
+            ) VALUES (?, ?, ?, ?, 'running', ?, ?, ?);
+            """,
+            (int(user_id), username, target[:500], scan_mode, "Starting scan", now, now),
+        )
+        return int(cur.lastrowid)
+
+
+def update_scan_activity(
+    activity_id: int,
+    progress: str,
+    db_path: str | Path | None = None,
+) -> None:
+    """Update the current stage and heartbeat for a running scan."""
+    now = utc_now_iso()
+    with get_conn(db_path) as conn:
+        conn.execute(
+            "UPDATE scan_activity SET progress = ?, updated_at = ? WHERE id = ? AND status = 'running';",
+            (str(progress)[:255], now, int(activity_id)),
+        )
+
+
+def finish_scan_activity(
+    activity_id: int,
+    status: str,
+    progress: str,
+    scan_id: int | None = None,
+    error: str | None = None,
+    db_path: str | Path | None = None,
+) -> None:
+    """Mark a monitored scan as complete or failed."""
+    now = utc_now_iso()
+    with get_conn(db_path) as conn:
+        conn.execute(
+            """
+            UPDATE scan_activity
+            SET status = ?, progress = ?, scan_id = ?, error = ?, updated_at = ?, finished_at = ?
+            WHERE id = ?;
+            """,
+            (status, str(progress)[:255], scan_id, str(error)[:1000] if error else None, now, now, int(activity_id)),
+        )
+
+
+def list_scan_activity(
+    limit: int = 100,
+    db_path: str | Path | None = None,
+) -> list[dict]:
+    """Return recent live and completed scan runs for the admin portal."""
+    with get_conn(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM scan_activity ORDER BY started_at DESC, id DESC LIMIT ?;",
+            (int(limit),),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
 
 # ── Activity Log Queries ─────────────────────────────────────────────────────

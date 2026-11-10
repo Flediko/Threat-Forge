@@ -337,7 +337,7 @@ function renderResults(report, scanId, recentScans) {
     if (labelText) labelText.innerText = label;
     if (targetDisplay) targetDisplay.innerText = report.target || 'Target';
     if (durationTag) {
-        durationTag.innerText = `⏱️ ${report.duration_sec || '1.1'}s`;
+        durationTag.innerText = `${report.duration_sec || '1.1'}s`;
     }
     if (summaryTag) {
         summaryTag.innerText = `${total} issue${total === 1 ? '' : 's'} detected`;
@@ -369,8 +369,7 @@ function renderResults(report, scanId, recentScans) {
         if (findings.length === 0) {
             issuesListEl.innerHTML = `
                 <div class="minimal-clean-state">
-                    <span style="font-size:1.1rem;margin-right:0.4rem;">🛡️</span>
-                    <span>All Audit Checks Passed &mdash; 0 Vulnerabilities Detected. Target is hardened.</span>
+                    <span>No vulnerabilities were found in the checks performed.</span>
                 </div>
             `;
         } else {

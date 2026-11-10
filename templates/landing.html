@@ -1,61 +1,55 @@
 {% extends "base.html" %}
 
-{% block title %}ThreatForge — Enterprise Web Application Vulnerability Scanner{% endblock %}
+{% block title %}ThreatForge — Web Application Security Scanner{% endblock %}
+{% block body_class %}landing-shell{% endblock %}
 
 {% block content %}
 <div class="landing-page-wrap">
     <!-- Hero Section -->
     <section class="landing-hero">
-        <div class="landing-hero-badge">
-            <span class="badge-dot"></span>
-            <span>Enterprise Vulnerability Intelligence &middot; OWASP Top 10 Heuristics</span>
-        </div>
+        <div class="landing-hero-kicker"><span class="status-mark" aria-hidden="true"></span>Web application security scanner</div>
 
         <h1 class="landing-hero-title">
-            Continuous Security Auditing.<br>
-            <span class="landing-gradient-text">Zero Compromise.</span>
+            Find vulnerabilities<br>
+            across your web apps
         </h1>
 
         <p class="landing-hero-sub">
-            ThreatForge automates black-box penetration assessments across web applications and REST APIs.
-            Detect SQLi, XSS, and command injection vectors, audit defensive headers, and download audit-ready compliance PDF reports in seconds.
+            Scan web applications and APIs for injection flaws, cross-site scripting, and security misconfigurations. Review findings in a clear report.
         </p>
 
         <div class="landing-cta-row">
             <a href="{% url 'scan' %}" class="tf-btn tf-btn-primary tf-btn-hero">
                 <svg class="tf-icon tf-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <span>Launch Security Scanner</span>
+                <span>Start a scan</span>
             </a>
             {% if not auth_user %}
             <a href="{% url 'login' %}" class="tf-btn tf-btn-secondary tf-btn-hero">
                 <svg class="tf-icon tf-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-                <span>Sign In / Register</span>
+                <span>Sign in</span>
             </a>
             {% else %}
             <a href="{% url 'profile' %}" class="tf-btn tf-btn-secondary tf-btn-hero">
                 <svg class="tf-icon tf-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                <span>My Security Profile</span>
+                <span>View profile</span>
             </a>
             {% endif %}
         </div>
 
-        <!-- Interactive Hero Showcase Card (Live Mock HUD) -->
+        <!-- Illustrative scan preview -->
         <div class="landing-mock-hud glass-card">
             <div class="mock-hud-topbar">
-                <div class="mock-hud-dots">
-                    <span class="hud-dot red"></span>
-                    <span class="hud-dot yellow"></span>
-                    <span class="hud-dot green"></span>
-                </div>
+                <div class="mock-hud-label">Scan summary</div>
                 <div class="mock-hud-url">
                     <svg class="tf-icon tf-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                    <span>https://target.staging-soc.internal/api/v2/auth</span>
+                    <span>staging.example.test/api/auth</span>
                 </div>
                 <div class="mock-hud-status">
                     <span class="pulse-indicator"></span>
-                    <span>9 Engines Active</span>
+                    <span>Example scan</span>
                 </div>
             </div>
+            <div class="scan-progress" aria-label="Example scan complete"><span></span></div>
 
             <div class="mock-hud-body">
                 <div class="mock-hud-score">
@@ -65,22 +59,22 @@
                     </div>
                     <div style="text-align:left;">
                         <span class="grade-pill" style="background:#10b981;font-size:0.8rem;padding:0.2rem 0.65rem;">Grade A</span>
-                        <div style="font-size:0.95rem;font-weight:700;margin-top:0.25rem;">Hardened Target</div>
-                        <div style="font-size:0.75rem;color:var(--text-muted);">Audited in 1.42s &middot; Air-Gapped Heuristics</div>
+                        <div class="mock-score-title">Low risk</div>
+                        <div class="mock-score-note">Illustrative scan summary</div>
                     </div>
                 </div>
 
                 <div class="mock-hud-findings">
                     <div class="mock-finding-pill safe">
-                        <span>✓ SQLi &amp; CMDI Injections</span>
-                        <span class="mock-pill-tag">0 Vectors</span>
+                        <span>SQL injection</span>
+                        <span class="mock-pill-tag">None found</span>
                     </div>
                     <div class="mock-finding-pill safe">
-                        <span>✓ Cross-Site Scripting (XSS)</span>
-                        <span class="mock-pill-tag">0 Vectors</span>
+                        <span>Cross-site scripting</span>
+                        <span class="mock-pill-tag">None found</span>
                     </div>
                     <div class="mock-finding-pill warn">
-                        <span>▲ Missing Security Header (CSP)</span>
+                        <span>Content Security Policy</span>
                         <span class="mock-pill-tag warn">Medium</span>
                     </div>
                 </div>
@@ -92,28 +86,28 @@
     <section class="landing-stats-bar">
         <div class="landing-stat-item">
             <div class="stat-number">9</div>
-            <div class="stat-label">Autonomous Audit Engines</div>
+            <div class="stat-label">Audit engines</div>
         </div>
         <div class="landing-stat-item">
-            <div class="stat-number">OWASP</div>
-            <div class="stat-label">Top 10 Risk Alignment</div>
+            <div class="stat-number">Top 10</div>
+            <div class="stat-label">OWASP-informed checks</div>
         </div>
         <div class="landing-stat-item">
-            <div class="stat-number">&lt; 15s</div>
-            <div class="stat-label">Average Audit Latency</div>
+            <div class="stat-number">GET + POST</div>
+            <div class="stat-label">Input methods checked</div>
         </div>
         <div class="landing-stat-item">
-            <div class="stat-number">100%</div>
-            <div class="stat-label">Air-Gapped &amp; On-Premise</div>
+            <div class="stat-number">PDF</div>
+            <div class="stat-label">Downloadable scan reports</div>
         </div>
     </section>
 
     <!-- Engine Architecture Grid -->
     <section class="landing-section">
         <div class="section-header">
-            <div class="section-tag">SOC AUDIT CAPABILITIES</div>
-            <h2 class="section-title">Comprehensive Black-Box Attack Surface Inspection</h2>
-            <p class="section-desc">ThreatForge coordinates 9 specialized penetration testing modules without dangerous payloads or destructive mutations.</p>
+            <div class="section-tag">What the scanner checks</div>
+            <h2 class="section-title">Checks for common web security issues</h2>
+            <p class="section-desc">Nine focused checks inspect application inputs, browser protections, and security headers.</p>
         </div>
 
         <div class="features-grid">
@@ -123,7 +117,6 @@
                 </div>
                 <h3 class="feature-title">SQL Injection Detection</h3>
                 <p class="feature-desc">Tests GET and POST parameters for syntax breaks, Boolean differential queries, and MySQL/Postgres error signatures.</p>
-                <div class="feature-badge badge-high">High Impact</div>
             </div>
 
             <div class="feature-card glass-card">
@@ -132,7 +125,6 @@
                 </div>
                 <h3 class="feature-title">Cross-Site Scripting (XSS)</h3>
                 <p class="feature-desc">Validates parameter sanitization against HTML entity reflection, event handler triggers, and script payload echoes.</p>
-                <div class="feature-badge badge-high">High Impact</div>
             </div>
 
             <div class="feature-card glass-card">
@@ -141,7 +133,6 @@
                 </div>
                 <h3 class="feature-title">Command Injection</h3>
                 <p class="feature-desc">Probes input fields for shell metacharacters and blind timing anomalies across Unix and Windows environments.</p>
-                <div class="feature-badge badge-high">High Impact</div>
             </div>
 
             <div class="feature-card glass-card">
@@ -150,7 +141,6 @@
                 </div>
                 <h3 class="feature-title">Security Headers Audit</h3>
                 <p class="feature-desc">Inspects mandatory defense headers including Content-Security-Policy, HSTS, X-Content-Type-Options, and Referrer-Policy.</p>
-                <div class="feature-badge badge-medium">Medium</div>
             </div>
 
             <div class="feature-card glass-card">
@@ -159,7 +149,6 @@
                 </div>
                 <h3 class="feature-title">Cookie Flag Protections</h3>
                 <p class="feature-desc">Verifies Secure, HttpOnly, and SameSite attributes on sensitive session cookies to prevent session hijacking and theft.</p>
-                <div class="feature-badge badge-medium">Medium</div>
             </div>
 
             <div class="feature-card glass-card">
@@ -168,7 +157,6 @@
                 </div>
                 <h3 class="feature-title">Clickjacking &amp; Framing</h3>
                 <p class="feature-desc">Checks for X-Frame-Options (DENY/SAMEORIGIN) and CSP frame-ancestors to defend users against UI redressing attacks.</p>
-                <div class="feature-badge badge-medium">Medium</div>
             </div>
         </div>
     </section>
@@ -176,12 +164,12 @@
     <!-- Bottom Action Banner -->
     <section class="landing-cta-banner glass-card">
         <div>
-            <h2 style="font-size:1.6rem;font-weight:800;letter-spacing:-0.02em;margin-bottom:0.4rem;">Initiate an Endpoint Security Assessment</h2>
-            <p style="color:var(--text-secondary);font-size:0.95rem;">Enter any target endpoint and generate an instant, audit-ready compliance PDF report.</p>
+            <h2>Review a web application</h2>
+            <p>Run a scan against an application you are authorized to test, then review its findings.</p>
         </div>
         <div>
             <a href="{% url 'scan' %}" class="tf-btn tf-btn-primary tf-btn-hero">
-                <span>Start Security Audit</span>
+                <span>Open scanner</span>
                 <svg class="tf-icon tf-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </a>
         </div>

@@ -9,8 +9,14 @@ import csv
 from datetime import datetime, timedelta, timezone
 import io
 import json
+import secrets
+import smtplib
 import time
+import zipfile
 
+from django.conf import settings
+from django.core import signing
+from django.core.mail import send_mail
 from django.http import (
     HttpResponse,
     HttpResponseForbidden,
@@ -18,7 +24,8 @@ from django.http import (
     JsonResponse,
 )
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_http_methods, require_POST
+from django.urls import reverse
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from scanner.scanner import MODULES, run_scan
 from services.activity import get_activity_events, log_event
@@ -28,17 +35,26 @@ from services.auth import (
     login as auth_login,
     perform_admin_user_action,
     register_user,
+    hash_password,
+    validate_user_identity,
 )
 from services.db import (
     delete_scan,
     delete_user,
     get_scan,
     get_user_by_id,
+    get_user_by_email,
+    get_user_by_username,
+    get_conn,
+    finish_scan_activity,
     init_db,
     insert_scan,
     list_all_scans,
     list_scans_for_user,
+    list_scan_activity,
     list_users,
+    start_scan_activity,
+    update_scan_activity,
     update_user,
     utc_now_iso,
 )
@@ -64,6 +80,8 @@ def _get_current_user(request):
 def landing_view(request):
     """Modern enterprise landing page for ThreatForge."""
     user = _get_current_user(request)
+    if user and user.get("role") == "admin":
+        return redirect("admin_panel")
     all_scans = list_all_scans()
     total_scans = len(all_scans)
     avg_score = (
@@ -89,7 +107,7 @@ def login_view(request):
     """Login and registration page."""
     current = _get_current_user(request)
     if current:
-        return redirect("scan")
+        return redirect("admin_panel" if current.get("role") == "admin" else "scan")
 
     login_error = None
     register_error = None
@@ -104,7 +122,7 @@ def login_view(request):
             res = auth_login(ident, password)
             if res["ok"]:
                 request.session["auth_user_id"] = res["user"]["id"]
-                return redirect("scan")
+                return redirect("admin_panel" if res["user"].get("role") == "admin" else "scan")
             else:
                 login_error = res["error"]
 
@@ -114,10 +132,12 @@ def login_view(request):
             password = request.POST.get("password", "")
             confirm = request.POST.get("confirm_password", "")
 
-            if password != confirm:
+            if request.POST.get("agree_terms") != "on":
+                register_error = "Please agree to the Terms of Use before creating an account."
+            elif password != confirm:
                 register_error = "Passwords do not match."
             else:
-                res = register_user(username, email, password)
+                res = register_user(username, email, password, terms_version="1.0")
                 if res["ok"]:
                     register_success = "Account created successfully! You can now sign in."
                 else:
@@ -133,6 +153,74 @@ def login_view(request):
             "logout_success": logout_success,
         },
     )
+
+
+def terms_view(request):
+    return render(request, "terms.html")
+
+
+def forgot_password_view(request):
+    message = None
+    error = None
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip().lower()
+        user = get_user_by_email(email) if email else None
+        if user and user.get("is_active", 1):
+            token = signing.dumps(
+                {"user_id": user["id"], "password_hash": user["password_hash"]},
+                salt="threatforge.password-reset",
+            )
+            reset_path = reverse("reset_password", kwargs={"token": token})
+            reset_url = request.build_absolute_uri(reset_path)
+            try:
+                send_mail(
+                    "Reset your ThreatForge password",
+                    f"Hello {user['username']},\n\nUse this link within one hour to reset your password:\n{reset_url}\n\nIf you did not request this, you can ignore this message.",
+                    None,
+                    [user["email"]],
+                    fail_silently=False,
+                )
+                log_event("password_reset_requested", user["id"], user["username"], "Password reset email sent")
+            except (OSError, smtplib.SMTPException):
+                log_event("password_reset_email_failed", user["id"], user["username"], "Password reset email delivery failed")
+        message = "If an active account matches that email, we’ve sent a password reset link. Check your inbox."
+        if settings.EMAIL_BACKEND.endswith("console.EmailBackend"):
+            message += " In local development, reset links appear in the server output."
+    return render(request, "forgot_password.html", {"message": message, "error": error})
+
+
+def reset_password_view(request, token):
+    error = None
+    success = False
+    user = None
+    try:
+        payload = signing.loads(token, salt="threatforge.password-reset", max_age=3600)
+        user = get_user_by_id(int(payload["user_id"]))
+        if not user or not user.get("is_active", 1) or not secrets.compare_digest(
+            str(user.get("password_hash", "")), str(payload.get("password_hash", ""))
+        ):
+            user = None
+    except (signing.BadSignature, signing.SignatureExpired, KeyError, TypeError, ValueError):
+        user = None
+
+    valid_link = user is not None
+    if not user:
+        error = "This password reset link is invalid or has expired. Request a new link to continue."
+    elif request.method == "POST":
+        password = request.POST.get("password", "")
+        confirmation = request.POST.get("confirm_password", "")
+        if len(password) < 10 or not any(char.isalpha() for char in password) or not any(char.isdigit() for char in password):
+            error = "Use at least 10 characters with at least one letter and one digit."
+        elif password != confirmation:
+            error = "The passwords do not match."
+        else:
+            password_hash, salt = hash_password(password)
+            update_user(user["id"], password_hash=password_hash, salt=salt, failed_logins=0, locked_until=None)
+            log_event("password_reset_completed", user["id"], user["username"], "Password reset completed")
+            success = True
+            valid_link = False
+            user = None
+    return render(request, "reset_password.html", {"error": error, "success": success, "valid_link": valid_link})
 
 
 def logout_view(request):
@@ -251,6 +339,8 @@ def scan_view(request):
     user = _get_current_user(request)
     if not user:
         return redirect("login")
+    if user.get("role") == "admin":
+        return redirect("admin_panel")
 
     recent_scans = list_scans_for_user(user["id"])[:8]
 
@@ -273,6 +363,8 @@ def api_run_scan(request):
     user = _get_current_user(request)
     if not user:
         return JsonResponse({"ok": False, "error": "Authentication required."}, status=401)
+    if user.get("role") == "admin":
+        return JsonResponse({"ok": False, "error": "Administrator accounts cannot run scans."}, status=403)
 
     try:
         data = json.loads(request.body.decode("utf-8"))
@@ -313,17 +405,35 @@ def api_run_scan(request):
         username=user["username"],
         detail=f"Scan started ({scan_mode.upper()} mode) for {target_url[:200]}",
     )
+    activity_id = start_scan_activity(
+        user_id=user["id"],
+        username=user["username"],
+        target=target_url,
+        scan_mode=scan_mode,
+    )
 
     # Execute scanner
-    report = run_scan(
-        target_url,
-        session_cookie=session_cookie,
-        scan_mode=scan_mode,
-        enabled_modules=enabled_modules,
-    )
+    try:
+        report = run_scan(
+            target_url,
+            progress_callback=lambda stage: update_scan_activity(activity_id, stage),
+            session_cookie=session_cookie,
+            scan_mode=scan_mode,
+            enabled_modules=enabled_modules,
+        )
+    except Exception as exc:
+        finish_scan_activity(activity_id, "failed", "Scan failed", error=str(exc))
+        log_event(
+            action="scan_failed",
+            user_id=user["id"],
+            username=user["username"],
+            detail=f"Target: {target_url[:200]} | Error: {exc}",
+        )
+        return JsonResponse({"ok": False, "error": "The scan could not be completed."}, status=500)
     duration_sec = round(time.perf_counter() - t0, 2)
 
     if "error" in report:
+        finish_scan_activity(activity_id, "failed", "Scan failed", error=report["error"])
         log_event(
             action="scan_failed",
             user_id=user["id"],
@@ -347,6 +457,7 @@ def api_run_scan(request):
         report_json=json.dumps(report),
         authorized_confirmed=1 if authorized else 0,
     )
+    finish_scan_activity(activity_id, "completed", "Scan complete", scan_id=scan_id)
 
     log_event(
         action="scan_finished",
@@ -546,6 +657,19 @@ def admin_panel_view(request):
     all_users = list_users()
     all_scans = list_all_scans()
     all_activity = get_activity_events(limit=500)
+    scan_runs = list_scan_activity(limit=100)
+    active_scan_count = sum(1 for run in scan_runs if run.get("status") == "running")
+    for event in all_activity:
+        event["action_label"] = str(event.get("action") or "system event").replace("_", " ").capitalize()
+
+    safe_user_fields = (
+        "id", "username", "email", "role", "is_active", "failed_logins",
+        "locked_until", "created_at", "last_login_at", "scan_count",
+    )
+    safe_users = [
+        {key: user.get(key) for key in safe_user_fields}
+        for user in all_users
+    ]
 
     now = datetime.now(timezone.utc)
     seven_days_ago = (now - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -578,14 +702,50 @@ def admin_panel_view(request):
 
     grade_counts = Counter(str(s.get("grade") or "A") for s in all_scans)
 
+    scan_usage = []
+    daily_counts = Counter(str(scan.get("started_at", ""))[:10] for scan in all_scans)
+    for days_ago in range(6, -1, -1):
+        day = now.date() - timedelta(days=days_ago)
+        scan_usage.append({
+            "date": day.strftime("%Y-%m-%d"),
+            "label": day.strftime("%a"),
+            "count": daily_counts.get(day.strftime("%Y-%m-%d"), 0),
+        })
+    max_daily_scans = max((day["count"] for day in scan_usage), default=0)
+    for day in scan_usage:
+        day["height"] = round(day["count"] / max_daily_scans * 100) if max_daily_scans else 0
+
+    finding_counts = Counter()
+    with get_conn() as conn:
+        report_rows = conn.execute("SELECT report_json FROM scans;").fetchall()
+        for row in report_rows:
+            try:
+                report = json.loads(row["report_json"] or "{}")
+            except (TypeError, ValueError):
+                continue
+            for finding in report.get("findings", []):
+                finding_type = str(finding.get("type") or finding.get("category") or "Other")
+                finding_counts[finding_type] += 1
+    top_findings = [
+        {"name": name, "count": count}
+        for name, count in finding_counts.most_common(8)
+    ]
+    max_finding_count = max((finding["count"] for finding in top_findings), default=0)
+    for finding in top_findings:
+        finding["width"] = round(finding["count"] / max_finding_count * 100) if max_finding_count else 0
+
+    database_tables = _admin_database_table_stats()
+
     return render(
         request,
         "admin_panel.html",
         {
             "admin": admin,
-            "users": all_users,
+            "users": safe_users,
             "scans": all_scans,
             "activity": all_activity,
+            "scan_runs": scan_runs,
+            "active_scan_count": active_scan_count,
             "total_users": total_users,
             "active_7d": active_7d,
             "total_scans": total_scans,
@@ -593,8 +753,165 @@ def admin_panel_view(request):
             "avg_score": avg_score,
             "failed_24h": failed_24h,
             "grade_counts": grade_counts,
+            "scan_usage": scan_usage,
+            "top_findings": top_findings,
+            "database_tables": database_tables,
         },
     )
+
+
+_ADMIN_DATABASE_QUERIES = {
+    "users": (
+        "id, username, email, role, is_active, failed_logins, created_at, last_login_at",
+        "SELECT id, username, email, role, is_active, failed_logins, created_at, last_login_at FROM users ORDER BY id DESC LIMIT ?;",
+    ),
+    "scans": (
+        "id, user_id, username, target, started_at, duration_sec, risk_score, grade, total_findings, high_count, medium_count, low_count, authorized_confirmed",
+        "SELECT s.id, s.user_id, u.username, s.target, s.started_at, s.duration_sec, s.risk_score, s.grade, s.total_findings, s.high_count, s.medium_count, s.low_count, s.authorized_confirmed FROM scans s LEFT JOIN users u ON u.id = s.user_id ORDER BY s.id DESC LIMIT ?;",
+    ),
+    "activity_log": (
+        "id, user_id, username, action, detail, ip, created_at",
+        "SELECT id, user_id, username, action, detail, ip, created_at FROM activity_log ORDER BY id DESC LIMIT ?;",
+    ),
+    "scan_activity": (
+        "id, user_id, username, target, scan_mode, status, progress, started_at, updated_at, finished_at, scan_id",
+        "SELECT id, user_id, username, target, scan_mode, status, progress, started_at, updated_at, finished_at, scan_id FROM scan_activity ORDER BY id DESC LIMIT ?;",
+    ),
+}
+
+
+def _admin_database_table_stats():
+    labels = {
+        "users": "User accounts",
+        "scans": "Scan results",
+        "activity_log": "Activity log",
+        "scan_activity": "Scan runs",
+    }
+    with get_conn() as conn:
+        return [
+            {"name": name, "label": label, "count": int(conn.execute(f"SELECT COUNT(*) AS row_count FROM {name};").fetchone()["row_count"])}
+            for name, label in labels.items()
+        ]
+
+
+@require_GET
+def admin_database_preview(request):
+    """Return a paged, credential-safe preview of a whitelisted database table."""
+    admin = _get_current_user(request)
+    if not admin or admin.get("role") != "admin":
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+    table = request.GET.get("table", "scans")
+    if table not in _ADMIN_DATABASE_QUERIES:
+        return JsonResponse({"ok": False, "error": "Unknown dataset"}, status=400)
+    columns, query = _ADMIN_DATABASE_QUERIES[table]
+    with get_conn() as conn:
+        rows = conn.execute(query, (100,)).fetchall()
+    return JsonResponse({"ok": True, "table": table, "columns": columns.split(", "), "rows": [dict(row) for row in rows]})
+
+
+@require_GET
+def admin_export_dataset(request):
+    """Export the application dataset as a zip of CSV tables, excluding credentials."""
+    admin = _get_current_user(request)
+    if not admin or admin.get("role") != "admin":
+        return HttpResponseForbidden("Administrator role required.")
+
+    exports = {
+        "users.csv": "SELECT id, username, email, role, is_active, failed_logins, locked_until, created_at, last_login_at FROM users ORDER BY id;",
+        "scans.csv": "SELECT s.id, s.user_id, u.username, s.target, s.started_at, s.duration_sec, s.risk_score, s.grade, s.total_findings, s.high_count, s.medium_count, s.low_count, s.authorized_confirmed, s.report_json FROM scans s LEFT JOIN users u ON u.id = s.user_id ORDER BY s.id;",
+        "activity_log.csv": "SELECT id, user_id, username, action, detail, ip, created_at FROM activity_log ORDER BY id;",
+        "scan_activity.csv": "SELECT id, user_id, username, target, scan_mode, status, progress, started_at, updated_at, finished_at, scan_id FROM scan_activity ORDER BY id;",
+    }
+    archive_buffer = io.BytesIO()
+    with get_conn() as conn, zipfile.ZipFile(archive_buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for filename, query in exports.items():
+            cursor = conn.execute(query)
+            rows = cursor.fetchall()
+            output = io.StringIO(newline="")
+            writer = csv.writer(output)
+            writer.writerow([column[0] for column in cursor.description])
+            for row in rows:
+                writer.writerow([_csv_safe_value(value) for value in row])
+            archive.writestr(filename, "\ufeff" + output.getvalue())
+
+        finding_rows = conn.execute("SELECT s.id, s.target, s.started_at, u.username, s.report_json FROM scans s LEFT JOIN users u ON u.id = s.user_id ORDER BY s.id;").fetchall()
+        findings_output = io.StringIO(newline="")
+        findings_writer = csv.writer(findings_output)
+        finding_columns = ("scan_id", "username", "target", "started_at", "type", "severity", "category", "detail", "description", "field", "location", "payload", "evidence")
+        findings_writer.writerow(finding_columns)
+        for row in finding_rows:
+            try:
+                report = json.loads(row["report_json"] or "{}")
+            except (TypeError, ValueError):
+                report = {}
+            for finding in report.get("findings", []):
+                values = [row["id"], row["username"], row["target"], row["started_at"]]
+                values.extend(finding.get(column, "") for column in finding_columns[4:])
+                findings_writer.writerow([_csv_safe_value(value) for value in values])
+        archive.writestr("findings.csv", "\ufeff" + findings_output.getvalue())
+
+    archive_buffer.seek(0)
+    response = HttpResponse(archive_buffer.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = 'attachment; filename="threatforge_dataset.zip"'
+    return response
+
+
+def _csv_safe_value(value):
+    """Prevent exported text cells from being interpreted as spreadsheet formulas."""
+    if value is None:
+        return ""
+    text = str(value)
+    if text.lstrip().startswith(("=", "+", "-", "@")):
+        return "'" + text
+    return text
+
+
+@require_GET
+def admin_scan_activity(request):
+    """Return recent scan progress for the administrator portal."""
+    admin = _get_current_user(request)
+    if not admin or admin.get("role") != "admin":
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+    return JsonResponse({"ok": True, "runs": list_scan_activity(limit=100)})
+
+
+@require_POST
+def admin_user_edit(request):
+    """Update a user's username and email from the admin portal."""
+    admin = _get_current_user(request)
+    if not admin or admin.get("role") != "admin":
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+
+    try:
+        target_user_id = int(request.POST.get("user_id", 0))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "Invalid user ID."}, status=400)
+
+    target = get_user_by_id(target_user_id)
+    if not target:
+        return JsonResponse({"ok": False, "error": "User not found."}, status=404)
+
+    username = request.POST.get("username", "").strip()
+    email = request.POST.get("email", "").strip().lower()
+    error = validate_user_identity(username, email)
+    if error:
+        return JsonResponse({"ok": False, "error": error}, status=400)
+
+    existing_username = get_user_by_username(username)
+    if existing_username and existing_username["id"] != target_user_id:
+        return JsonResponse({"ok": False, "error": "That username is already in use."}, status=409)
+    existing_email = get_user_by_email(email)
+    if existing_email and existing_email["id"] != target_user_id:
+        return JsonResponse({"ok": False, "error": "That email is already in use."}, status=409)
+
+    update_user(target_user_id, username=username, email=email)
+    log_event(
+        action="admin_edit_user",
+        user_id=admin["id"],
+        username=admin["username"],
+        detail=f"Updated profile for user id={target_user_id}",
+    )
+    return JsonResponse({"ok": True, "message": "User details updated."})
 
 
 @require_POST

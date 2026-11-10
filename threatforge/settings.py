@@ -38,7 +38,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "threatforge.urls"
+ROOT_URLCONF = "web.urls"
 
 TEMPLATES = [
     {
@@ -108,6 +108,20 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Configure SMTP via TF_EMAIL_HOST, TF_EMAIL_PORT, TF_EMAIL_HOST_USER,
+# TF_EMAIL_HOST_PASSWORD, and TF_EMAIL_USE_TLS. Development defaults to the
+# console backend so reset links are visible to the developer without a mail server.
+EMAIL_BACKEND = os.environ.get(
+    "TF_EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.environ.get("TF_EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.environ.get("TF_EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.environ.get("TF_EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("TF_EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("TF_EMAIL_USE_TLS", "0") == "1"
+DEFAULT_FROM_EMAIL = os.environ.get("TF_DEFAULT_FROM_EMAIL", "ThreatForge <no-reply@localhost>")
 
 # Session settings
 SESSION_COOKIE_AGE = 86400  # 24 hours

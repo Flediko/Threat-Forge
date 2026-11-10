@@ -1,259 +1,493 @@
 {% extends "base.html" %}
 
-{% block title %}Administrator Panel — ThreatForge{% endblock %}
-
+{% block title %}Admin Portal — ThreatForge{% endblock %}
+{% block body_class %}admin-shell{% endblock %}
 {% block container_class %}tf-container-wide{% endblock %}
 
 {% block content %}
-<div class="tf-hero">
-    <h1 class="tf-hero-title">Platform Administration</h1>
-    <p class="tf-hero-sub">Global platform telemetry, user access control, security audit logs, and scan management</p>
-</div>
+<div class="admin-portal">
+    <aside class="admin-sidebar" aria-label="Admin portal navigation">
+        <a class="admin-brand" href="{% url 'admin_panel' %}">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+            <span><strong>ThreatForge</strong><small>Admin portal</small></span>
+        </a>
 
-<!-- 6 Balanced Metric Cards -->
-<div class="admin-metrics-grid">
-    <div class="tf-metric-card">
-        <div class="tf-metric-label">Total Users</div>
-        <div class="tf-metric-val">{{ total_users }}</div>
-    </div>
-    <div class="tf-metric-card">
-        <div class="tf-metric-label">Active (7d)</div>
-        <div class="tf-metric-val" style="color:var(--cyan);">{{ active_7d }}</div>
-    </div>
-    <div class="tf-metric-card">
-        <div class="tf-metric-label">Total Scans</div>
-        <div class="tf-metric-val">{{ total_scans }}</div>
-    </div>
-    <div class="tf-metric-card">
-        <div class="tf-metric-label">Scans Today</div>
-        <div class="tf-metric-val" style="color:var(--accent-light);">{{ scans_today }}</div>
-    </div>
-    <div class="tf-metric-card">
-        <div class="tf-metric-label">Avg Risk Score</div>
-        <div class="tf-metric-val">{{ avg_score }}</div>
-    </div>
-    <div class="tf-metric-card">
-        <div class="tf-metric-label">Failed Logins (24h)</div>
-        <div class="tf-metric-val" style="color:var(--warning);">{{ failed_24h }}</div>
-    </div>
-</div>
+        <nav class="admin-side-nav" aria-label="Admin sections">
+            <button type="button" class="admin-nav-item active" data-admin-view="overview" aria-current="page">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="10" width="8" height="11" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg>
+                <span>Overview</span>
+            </button>
+            <button type="button" class="admin-nav-item" data-admin-view="users">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 8v6m3-3h-6"/></svg>
+                <span>Users</span><span class="admin-nav-count">{{ total_users }}</span>
+            </button>
+            <button type="button" class="admin-nav-item" data-admin-view="scans">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5m0 14h16"/><path d="m7 15 4-4 3 2 5-6"/></svg>
+                <span>Scans</span><span class="admin-nav-count">{{ total_scans }}</span>
+            </button>
+            <button type="button" class="admin-nav-item" data-admin-view="activity">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+                <span>Activity log</span>
+            </button>
+            <button type="button" class="admin-nav-item" data-admin-view="database">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+                <span>Database</span>
+            </button>
+        </nav>
 
-<!-- Tabs -->
-<div class="tf-tabs" role="tablist">
-    <button class="tf-tab-btn active" role="tab" onclick="switchAdminTab('users')">User Management ({{ total_users }})</button>
-    <button class="tf-tab-btn" role="tab" onclick="switchAdminTab('scans')">Platform Scans ({{ total_scans }})</button>
-    <button class="tf-tab-btn" role="tab" onclick="switchAdminTab('logs')">Activity Audit Trail ({{ activity|length }})</button>
-</div>
-
-<!-- Tab 1: User Management -->
-<div id="admin-tab-users" class="tf-tab-pane active">
-    <div class="glass-card" style="padding:0;overflow:hidden;">
-        <div class="tf-table-wrap">
-            <table class="tf-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Failed Logins</th>
-                        <th>Last Login (UTC)</th>
-                        <th>Scans</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for u in users %}
-                    <tr>
-                        <td><strong>#{{ u.id }}</strong></td>
-                        <td><strong>{{ u.username }}</strong></td>
-                        <td style="color:var(--text-secondary);font-size:0.85rem;">{{ u.email }}</td>
-                        <td><span class="tf-role-badge role-{{ u.role }}">{{ u.role }}</span></td>
-                        <td>
-                            {% if u.is_active %}
-                            <span style="color:var(--success);font-weight:700;">Active</span>
-                            {% else %}
-                            <span style="color:var(--danger);font-weight:700;">Disabled</span>
-                            {% endif %}
-                            {% if u.locked_until %}
-                            <br><span style="font-size:0.72rem;color:var(--warning);">🔒 Locked</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ u.failed_logins }}</td>
-                        <td style="font-size:0.8rem;color:var(--text-secondary);font-family:JetBrains Mono,monospace;">{{ u.last_login_at|default:"Never" }}</td>
-                        <td>{{ u.scan_count|default:0 }}</td>
-                        <td>
-                            <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
-                                {% if u.is_active %}
-                                <button type="button" class="tf-btn tf-btn-secondary btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="disable" data-username="{{ u.username }}">🚫 Disable</button>
-                                {% else %}
-                                <button type="button" class="tf-btn tf-btn-secondary btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="enable" data-username="{{ u.username }}">✅ Enable</button>
-                                {% endif %}
-
-                                {% if u.locked_until or u.failed_logins > 0 %}
-                                <button type="button" class="tf-btn tf-btn-secondary btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="unlock" data-username="{{ u.username }}">🔓 Unlock</button>
-                                {% endif %}
-
-                                {% if u.role == "user" %}
-                                <button type="button" class="tf-btn tf-btn-secondary btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="promote" data-username="{{ u.username }}">⬆️ Admin</button>
-                                {% else %}
-                                <button type="button" class="tf-btn tf-btn-secondary btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="demote" data-username="{{ u.username }}">⬇️ User</button>
-                                {% endif %}
-
-                                <button type="button" class="tf-btn tf-btn-danger btn-user-act" style="padding:0.25rem 0.55rem;font-size:0.75rem;" data-id="{{ u.id }}" data-action="delete" data-username="{{ u.username }}">🗑️</button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="admin-sidebar-bottom">
+            <div class="admin-signed-in">
+                <span class="admin-avatar">{{ admin.username|slice:":1"|upper }}</span>
+                <span><strong>{{ admin.username }}</strong><small>Administrator</small></span>
+            </div>
+            <a class="admin-logout-link" href="{% url 'logout' %}">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg>
+                Sign out
+            </a>
         </div>
-    </div>
+    </aside>
+
+    <main class="admin-workspace">
+        <header class="admin-page-header">
+            <div>
+                <p class="admin-eyebrow">ThreatForge / Administration</p>
+                <h1 id="admin-view-title">Overview</h1>
+                <p id="admin-view-description">Platform health, scan activity, and recent changes</p>
+            </div>
+            <div class="admin-live-state"><span class="admin-live-dot"></span><span><strong id="active-scan-count">{{ active_scan_count }}</strong> scans running</span><span class="admin-refresh-rate">Refreshes every 3 seconds</span></div>
+        </header>
+
+        <div id="admin-feedback" class="admin-feedback" role="status" aria-live="polite" hidden></div>
+
+        <section id="admin-view-overview" class="admin-view active" aria-labelledby="admin-view-title">
+            <div class="admin-stat-grid">
+                <article class="admin-stat-card"><span>Registered users</span><strong>{{ total_users }}</strong><small>{{ active_7d }} active in the past 7 days</small></article>
+                <article class="admin-stat-card"><span>Completed scans</span><strong>{{ total_scans }}</strong><small>{{ scans_today }} started today (UTC)</small></article>
+                <article class="admin-stat-card"><span>Average risk score</span><strong>{{ avg_score }}</strong><small>0 safe · 100 critical</small></article>
+                <article class="admin-stat-card"><span>Failed logins</span><strong>{{ failed_24h }}</strong><small>Past 24 hours</small></article>
+            </div>
+
+            <div class="admin-analytics-grid">
+                <section class="admin-panel admin-chart-panel" aria-labelledby="usage-chart-title">
+                    <div class="admin-panel-heading"><div><h2 id="usage-chart-title">Scan usage</h2><p>Completed scans by day · last 7 days</p></div><span class="admin-chart-total">{{ total_scans }} total</span></div>
+                    <div class="admin-usage-chart" role="img" aria-label="Completed scans per day over the last seven days">
+                        {% for day in scan_usage %}
+                        <div class="admin-usage-column" aria-label="{{ day.date }}: {{ day.count }} scans"><strong>{{ day.count }}</strong><div class="admin-usage-track"><i style="height:{{ day.height }}%"></i></div><span>{{ day.label }}</span></div>
+                        {% endfor %}
+                    </div>
+                </section>
+                <section class="admin-panel admin-chart-panel" aria-labelledby="finding-chart-title">
+                    <div class="admin-panel-heading"><div><h2 id="finding-chart-title">Most common findings</h2><p>Prominent finding types across saved reports</p></div><span class="admin-chart-total">{{ top_findings|length }} types</span></div>
+                    <div class="admin-finding-chart">
+                        {% for finding in top_findings %}
+                        <div class="admin-finding-bar-row"><span title="{{ finding.name }}">{{ finding.name }}</span><div><i style="width:{{ finding.width }}%"></i></div><strong>{{ finding.count }}</strong></div>
+                        {% empty %}<p class="admin-chart-empty">No findings have been recorded yet.</p>{% endfor %}
+                    </div>
+                </section>
+            </div>
+
+            <div class="admin-overview-grid">
+                <section class="admin-panel admin-live-panel" aria-labelledby="live-scans-title">
+                    <div class="admin-panel-heading">
+                        <div><h2 id="live-scans-title">Scan activity</h2><p>Current runs with their latest scanner stage</p></div>
+                        <button type="button" class="admin-text-button" data-admin-view="scans">View all scans</button>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead><tr><th>Target</th><th>Started by</th><th>Mode</th><th>Status</th><th>Progress</th></tr></thead>
+                            <tbody id="scan-activity-body">
+                                {% for run in scan_runs %}
+                                <tr>
+                                    <td class="admin-target-cell">{{ run.target }}</td>
+                                    <td>{{ run.username }}</td>
+                                    <td>{{ run.scan_mode|title }}</td>
+                                    <td><span class="admin-status status-{{ run.status }}">{{ run.status|title }}</span></td>
+                                    <td>{{ run.progress }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5" class="admin-empty-cell">No scans have been started yet</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="admin-updated-at">Last refreshed <time id="scan-activity-updated">just now</time></p>
+                </section>
+
+                <section class="admin-panel" aria-labelledby="admin-recent-activity-title">
+                    <div class="admin-panel-heading">
+                        <div><h2 id="admin-recent-activity-title">Recent activity</h2><p>Latest account and scan events</p></div>
+                        <button type="button" class="admin-text-button" data-admin-view="activity">Open log</button>
+                    </div>
+                    <ol class="admin-activity-list">
+                        {% for event in activity|slice:":8" %}
+                        <li><span class="activity-marker"></span><div><strong>{{ event.action_label }}</strong><p>{{ event.detail|default:event.username|default:"System event" }}</p><time>{{ event.created_at }}</time></div></li>
+                        {% empty %}
+                        <li class="admin-activity-empty">No activity recorded yet</li>
+                        {% endfor %}
+                    </ol>
+                </section>
+            </div>
+
+            <section class="admin-panel admin-recent-scans" aria-labelledby="recent-scans-title">
+                <div class="admin-panel-heading">
+                    <div><h2 id="recent-scans-title">Latest completed scans</h2><p>Recent results across all users</p></div>
+                    <button type="button" class="admin-text-button" data-admin-view="scans">All scan results</button>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead><tr><th>Scan</th><th>Target</th><th>User</th><th>Started (UTC)</th><th>Grade</th><th>Findings</th><th></th></tr></thead>
+                        <tbody>
+                            {% for scan in scans|slice:":6" %}
+                            <tr>
+                                <td>#{{ scan.id }}</td><td class="admin-target-cell">{{ scan.target }}</td><td>{{ scan.username|default:"Unknown" }}</td>
+                                <td>{{ scan.started_at }}</td><td><span class="grade-pill">{{ scan.grade }}</span></td>
+                                <td>{{ scan.total_findings|default:0 }}</td>
+                                <td><button type="button" class="admin-table-link" data-inspect-scan="{{ scan.id }}">Inspect</button></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="7" class="admin-empty-cell">No completed scans yet</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section id="admin-view-users" class="admin-view" aria-labelledby="users-title" hidden>
+            <section class="admin-panel">
+                <div class="admin-panel-heading">
+                    <div><h2 id="users-title">User accounts</h2><p>Edit account details, access, and roles</p></div>
+                    <label class="admin-search-label"><span class="sr-only">Search users</span><input class="admin-search" data-search-table="users-table" type="search" placeholder="Search users"></label>
+                </div>
+                <div class="admin-table-wrap">
+                    <table id="users-table" class="admin-table">
+                        <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Scans</th><th>Failed logins</th><th>Last login (UTC)</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr data-search-row>
+                                <td><strong>{{ user.username }}</strong><small class="admin-subcell">Account #{{ user.id }} · Created {{ user.created_at|slice:":10" }}</small></td>
+                                <td>{{ user.email }}</td>
+                                <td><span class="admin-role role-{{ user.role }}">{{ user.role|title }}</span></td>
+                                <td><span class="admin-status {% if user.is_active %}status-active{% else %}status-disabled{% endif %}">{% if user.is_active %}Active{% else %}Disabled{% endif %}{% if user.locked_until %} · Locked{% endif %}</span></td>
+                                <td>{{ user.scan_count|default:0 }}</td>
+                                <td>{{ user.failed_logins|default:0 }}</td>
+                                <td>{{ user.last_login_at|default:"Never" }}</td>
+                                <td><div class="admin-row-actions">
+                                    <button type="button" class="admin-action-button" data-edit-user data-id="{{ user.id }}" data-username="{{ user.username }}" data-email="{{ user.email }}">Edit</button>
+                                    {% if user.is_active %}<button type="button" class="admin-action-button" data-user-action="disable" data-id="{{ user.id }}" data-username="{{ user.username }}">Disable</button>{% else %}<button type="button" class="admin-action-button" data-user-action="enable" data-id="{{ user.id }}" data-username="{{ user.username }}">Enable</button>{% endif %}
+                                    {% if user.role == "user" %}<button type="button" class="admin-action-button" data-user-action="promote" data-id="{{ user.id }}" data-username="{{ user.username }}">Make admin</button>{% else %}<button type="button" class="admin-action-button" data-user-action="demote" data-id="{{ user.id }}" data-username="{{ user.username }}">Make user</button>{% endif %}
+                                    {% if user.locked_until or user.failed_logins > 0 %}<button type="button" class="admin-action-button" data-user-action="unlock" data-id="{{ user.id }}" data-username="{{ user.username }}">Unlock</button>{% endif %}
+                                    <button type="button" class="admin-action-button action-danger" data-user-action="delete" data-id="{{ user.id }}" data-username="{{ user.username }}">Delete</button>
+                                </div></td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="8" class="admin-empty-cell">No user accounts found</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section id="admin-view-scans" class="admin-view" aria-labelledby="scans-title" hidden>
+            <section class="admin-panel">
+                <div class="admin-panel-heading">
+                    <div><h2 id="scans-title">Scan runs</h2><p>Live progress and completed results</p></div>
+                    <label class="admin-search-label"><span class="sr-only">Search scans</span><input class="admin-search" data-search-table="all-scans-table" type="search" placeholder="Search targets or users"></label>
+                </div>
+                <h3 class="admin-subheading">In progress and recent runs</h3>
+                <div class="admin-table-wrap admin-scan-runs-wrap">
+                    <table class="admin-table"><thead><tr><th>Target</th><th>Started by</th><th>Mode</th><th>Status</th><th>Current stage</th><th>Updated</th></tr></thead>
+                        <tbody id="scan-activity-body-all">
+                            {% for run in scan_runs %}<tr><td class="admin-target-cell">{{ run.target }}</td><td>{{ run.username }}</td><td>{{ run.scan_mode|title }}</td><td><span class="admin-status status-{{ run.status }}">{{ run.status|title }}</span></td><td>{{ run.progress }}</td><td>{{ run.updated_at }}</td></tr>
+                            {% empty %}<tr><td colspan="6" class="admin-empty-cell">No scan runs have been recorded</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <h3 class="admin-subheading">Completed results</h3>
+                <div class="admin-table-wrap">
+                    <table id="all-scans-table" class="admin-table"><thead><tr><th>Scan</th><th>Target</th><th>User</th><th>Started (UTC)</th><th>Grade</th><th>Risk score</th><th>Findings</th><th>Report</th><th></th></tr></thead>
+                        <tbody>
+                            {% for scan in scans %}<tr data-search-row><td>#{{ scan.id }}</td><td class="admin-target-cell">{{ scan.target }}</td><td>{{ scan.username|default:"Unknown" }}</td><td>{{ scan.started_at }}</td><td><span class="grade-pill">{{ scan.grade }}</span></td><td>{{ scan.risk_score }}/100</td><td>High {{ scan.high_count }} · Medium {{ scan.medium_count }} · Low {{ scan.low_count }}</td><td><a class="admin-table-link" href="{% url 'download_pdf' scan.id %}">PDF</a></td><td><button type="button" class="admin-table-link" data-inspect-scan="{{ scan.id }}">Inspect</button></td></tr>
+                            {% empty %}<tr><td colspan="9" class="admin-empty-cell">No completed scans yet</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section id="admin-view-activity" class="admin-view" aria-labelledby="activity-title" hidden>
+            <section class="admin-panel">
+                <div class="admin-panel-heading">
+                    <div><h2 id="activity-title">Activity log</h2><p>Account, scan, and administrator events</p></div>
+                    <label class="admin-search-label"><span class="sr-only">Search activity</span><input class="admin-search" data-search-table="activity-table" type="search" placeholder="Search activity"></label>
+                </div>
+                <div class="admin-table-wrap">
+                    <table id="activity-table" class="admin-table"><thead><tr><th>Time (UTC)</th><th>Action</th><th>User</th><th>Details</th><th>Source</th></tr></thead>
+                        <tbody>
+                            {% for event in activity %}<tr data-search-row><td>{{ event.created_at }}</td><td>{{ event.action_label }}</td><td>{{ event.username|default:"Anonymous" }}</td><td class="admin-detail-cell">{{ event.detail|default:"—" }}</td><td>{{ event.ip|default:"local" }}</td></tr>
+                            {% empty %}<tr><td colspan="5" class="admin-empty-cell">No activity recorded yet</td></tr>{% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <section id="admin-view-database" class="admin-view" aria-labelledby="database-title" hidden>
+            <div class="admin-panel admin-database-panel">
+                <div class="admin-panel-heading admin-database-heading">
+                    <div><h2 id="database-title">Database explorer</h2><p>Browse safe previews of the stored application data</p></div>
+                    <a class="admin-export-button" href="{% url 'admin_export_dataset' %}"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v3h16v-3"/></svg>Export dataset <small>ZIP</small></a>
+                </div>
+                <div class="admin-database-tables">
+                    {% for table in database_tables %}<button type="button" class="admin-database-table-card {% if table.name == 'scans' %}active{% endif %}" data-database-table="{{ table.name }}"><span>{{ table.label }}</span><strong>{{ table.count }}</strong><small>records</small></button>{% endfor %}
+                </div>
+                <div class="admin-database-browser">
+                    <div class="admin-database-browser-head"><div><h3 id="database-preview-title">Scan results</h3><p>Showing up to 100 recent records. Credential hashes and salts are excluded.</p></div><label class="admin-database-select-label" for="database-table-select">Dataset<select id="database-table-select"><option value="scans">Scan results</option><option value="users">User accounts</option><option value="activity_log">Activity log</option><option value="scan_activity">Scan runs</option></select></label></div>
+                    <div class="admin-table-wrap"><table id="database-preview-table" class="admin-table"><thead></thead><tbody><tr><td class="admin-empty-cell">Loading database preview…</td></tr></tbody></table></div>
+                    <p id="database-preview-status" class="admin-updated-at" aria-live="polite"></p>
+                </div>
+            </div>
+        </section>
+    </main>
 </div>
 
-<!-- Tab 2: All Scans -->
-<div id="admin-tab-scans" class="tf-tab-pane">
-    <div class="glass-card" style="padding:0;overflow:hidden;">
-        <div class="tf-table-wrap">
-            <table class="tf-table">
-                <thead>
-                    <tr>
-                        <th>Scan ID</th>
-                        <th>User</th>
-                        <th>Date (UTC)</th>
-                        <th>Target</th>
-                        <th>Grade</th>
-                        <th>Score</th>
-                        <th>Findings</th>
-                        <th>Report</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for s in scans %}
-                    <tr>
-                        <td><strong>#{{ s.id }}</strong></td>
-                        <td><span class="tf-user-chip" style="display:inline-flex;">{{ s.username|default:"Unknown" }}</span></td>
-                        <td style="font-size:0.8rem;color:var(--text-secondary);font-family:JetBrains Mono,monospace;">{{ s.started_at }}</td>
-                        <td><code style="color:#a5b4fc;">{{ s.target }}</code></td>
-                        <td>
-                            <span class="grade-pill" style="{% if s.grade == 'A' %}background:#10b981;{% elif s.grade == 'B' %}background:#84cc16;{% elif s.grade == 'C' %}background:#f59e0b;{% elif s.grade == 'D' %}background:#f97316;{% else %}background:#ef4444;{% endif %}">
-                                Grade {{ s.grade }}
-                            </span>
-                        </td>
-                        <td><strong>{{ s.risk_score }}/100</strong></td>
-                        <td style="font-size:0.85rem;">🔴 {{ s.high_count }} &nbsp; 🟡 {{ s.medium_count }} &nbsp; 🟢 {{ s.low_count }}</td>
-                        <td>
-                            <a href="{% url 'download_pdf' s.id %}" class="tf-btn tf-btn-primary" style="padding:0.3rem 0.7rem;font-size:0.78rem;">📄 PDF</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+<div id="user-edit-modal" class="admin-modal" hidden>
+    <div class="admin-modal-scrim" data-close-modal></div>
+    <section class="admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="user-edit-title">
+        <div class="admin-modal-head"><div><p class="admin-eyebrow">User account</p><h2 id="user-edit-title">Edit user</h2></div><button type="button" class="admin-modal-close" data-close-modal aria-label="Close">×</button></div>
+        <form id="user-edit-form">
+            <input type="hidden" name="user_id" id="edit-user-id">
+            <label class="admin-form-field" for="edit-username">Username<input id="edit-username" name="username" required minlength="3" maxlength="30" pattern="[A-Za-z0-9_]+" autocomplete="off"></label>
+            <label class="admin-form-field" for="edit-email">Email<input id="edit-email" name="email" type="email" required maxlength="254" autocomplete="off"></label>
+            <p id="user-edit-error" class="admin-form-error" role="alert" hidden></p>
+            <div class="admin-modal-actions"><button type="button" class="admin-action-button" data-close-modal>Cancel</button><button type="submit" class="admin-primary-button">Save changes</button></div>
+        </form>
+    </section>
 </div>
 
-<!-- Tab 3: Activity Log -->
-<div id="admin-tab-logs" class="tf-tab-pane">
-    <div class="glass-card" style="padding:0;overflow:hidden;">
-        <div class="tf-table-wrap">
-            <table class="tf-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Timestamp (UTC)</th>
-                        <th>Action</th>
-                        <th>User</th>
-                        <th>Detail</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for a in activity %}
-                    <tr>
-                        <td>#{{ a.id }}</td>
-                        <td style="font-size:0.8rem;color:var(--text-secondary);font-family:JetBrains Mono,monospace;">{{ a.created_at }}</td>
-                        <td>
-                            <span class="badge {% if 'failed' in a.action or 'delete' in a.action or 'disable' in a.action %}badge-high{% elif 'scan' in a.action %}badge-medium{% else %}badge-low{% endif %}">
-                                {{ a.action }}
-                            </span>
-                        </td>
-                        <td><strong>{{ a.username|default:"Anonymous" }}</strong></td>
-                        <td style="font-size:0.84rem;color:var(--text-secondary);word-break:break-all;">{{ a.detail|default:"-" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+<div id="scan-inspect-modal" class="admin-modal" hidden>
+    <div class="admin-modal-scrim" data-close-modal></div>
+    <section class="admin-modal-card admin-scan-modal-card" role="dialog" aria-modal="true" aria-labelledby="scan-inspect-title">
+        <div class="admin-modal-head"><div><p class="admin-eyebrow">Scan report</p><h2 id="scan-inspect-title">Scan details</h2></div><button type="button" class="admin-modal-close" data-close-modal aria-label="Close">×</button></div>
+        <div id="scan-inspect-content"><p class="admin-muted">Loading report…</p></div>
+    </section>
 </div>
 
 <script>
-function switchAdminTab(tabId) {
-    document.querySelectorAll('.tf-tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tf-tab-pane').forEach(p => p.classList.remove('active'));
+const adminViewCopy = {
+    overview: ["Overview", "Platform health, scan activity, and recent changes"],
+    users: ["Users", "Edit account details, access, and roles"],
+    scans: ["Scans", "Monitor current runs and inspect completed results"],
+    activity: ["Activity log", "Review account, scan, and administrator events"],
+    database: ["Database", "Browse application datasets and export a complete data archive"]
+};
 
-    if (tabId === 'users') {
-        document.querySelectorAll('.tf-tab-btn')[0].classList.add('active');
-        document.getElementById('admin-tab-users').classList.add('active');
-    } else if (tabId === 'scans') {
-        document.querySelectorAll('.tf-tab-btn')[1].classList.add('active');
-        document.getElementById('admin-tab-scans').classList.add('active');
-    } else if (tabId === 'logs') {
-        document.querySelectorAll('.tf-tab-btn')[2].classList.add('active');
-        document.getElementById('admin-tab-logs').classList.add('active');
-    }
+function setAdminView(view) {
+    if (!adminViewCopy[view]) return;
+    document.querySelectorAll('.admin-view').forEach(section => {
+        const active = section.id === `admin-view-${view}`;
+        section.hidden = !active;
+        section.classList.toggle('active', active);
+    });
+    document.querySelectorAll('[data-admin-view]').forEach(button => {
+        const active = button.dataset.adminView === view;
+        if (button.classList.contains('admin-nav-item')) {
+            button.classList.toggle('active', active);
+            if (active) button.setAttribute('aria-current', 'page');
+            else button.removeAttribute('aria-current');
+        }
+    });
+    document.getElementById('admin-view-title').textContent = adminViewCopy[view][0];
+    document.getElementById('admin-view-description').textContent = adminViewCopy[view][1];
+    if (view === 'database') loadDatabasePreview();
 }
 
-async function performUserAction(userId, actionType, username) {
-    if (actionType === 'delete') {
-        if (!confirm(`Are you sure you want to permanently delete user '${username}' and all associated scans?`)) return;
-    }
+function adminCookie(name) {
+    const prefix = `${name}=`;
+    const item = document.cookie.split(';').map(value => value.trim()).find(value => value.startsWith(prefix));
+    return item ? decodeURIComponent(item.slice(prefix.length)) : '';
+}
 
-    const formData = new FormData();
-    formData.append('user_id', userId);
-    formData.append('action_type', actionType);
+function showAdminFeedback(message, isError = false) {
+    const feedback = document.getElementById('admin-feedback');
+    feedback.textContent = message;
+    feedback.classList.toggle('is-error', isError);
+    feedback.hidden = false;
+    window.clearTimeout(showAdminFeedback.timer);
+    showAdminFeedback.timer = window.setTimeout(() => { feedback.hidden = true; }, 5000);
+}
 
+function escapeAdminHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char]));
+}
+
+const databaseTableLabels = { scans: 'Scan results', users: 'User accounts', activity_log: 'Activity log', scan_activity: 'Scan runs' };
+async function loadDatabasePreview() {
+    const tableName = document.getElementById('database-table-select').value;
+    const body = document.querySelector('#database-preview-table tbody');
+    const head = document.querySelector('#database-preview-table thead');
+    const status = document.getElementById('database-preview-status');
+    body.innerHTML = '<tr><td class="admin-empty-cell">Loading database preview…</td></tr>';
     try {
-        const res = await fetch('/api/admin/user-action/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: formData
-        });
-        const json = await res.json();
-        if (json.ok) {
-            alert(json.message);
-            location.reload();
-        } else {
-            alert('Action failed: ' + json.error);
-        }
-    } catch (e) {
-        alert('Error: ' + e);
+        const response = await fetch(`{% url 'admin_database_preview' %}?table=${encodeURIComponent(tableName)}`, { headers: { 'Accept': 'application/json' } });
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.error || 'Dataset preview unavailable.');
+        document.getElementById('database-preview-title').textContent = databaseTableLabels[result.table] || result.table;
+        head.innerHTML = `<tr>${result.columns.map(column => `<th>${escapeAdminHtml(column.replaceAll('_', ' '))}</th>`).join('')}</tr>`;
+        body.innerHTML = result.rows.length ? result.rows.map(row => `<tr>${result.columns.map(column => `<td>${escapeAdminHtml(row[column] ?? '—')}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${result.columns.length}" class="admin-empty-cell">This dataset is empty.</td></tr>`;
+        status.textContent = `Showing ${result.rows.length} recent records`;
+    } catch (error) {
+        head.innerHTML = '';
+        body.innerHTML = `<tr><td class="admin-form-error">${escapeAdminHtml(error.message)}</td></tr>`;
+        status.textContent = '';
     }
 }
 
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
+function renderScanRuns(runs) {
+    const activeCount = runs.filter(run => run.status === 'running').length;
+    document.getElementById('active-scan-count').textContent = activeCount;
+    const renderRows = (containerId, limit) => {
+        const body = document.getElementById(containerId);
+        if (!body) return;
+        const visibleRuns = runs.slice(0, limit);
+        body.innerHTML = visibleRuns.length ? visibleRuns.map(run => `
+            <tr>
+                <td class="admin-target-cell">${escapeAdminHtml(run.target)}</td>
+                <td>${escapeAdminHtml(run.username)}</td>
+                <td>${escapeAdminHtml(run.scan_mode)}</td>
+                <td><span class="admin-status status-${escapeAdminHtml(run.status)}">${escapeAdminHtml(run.status)}</span></td>
+                <td>${escapeAdminHtml(run.progress)}</td>
+                ${containerId === 'scan-activity-body-all' ? `<td>${escapeAdminHtml(run.updated_at)}</td>` : ''}
+            </tr>`).join('') : `<tr><td colspan="${containerId === 'scan-activity-body-all' ? 6 : 5}" class="admin-empty-cell">No scan runs have been recorded</td></tr>`;
+    };
+    renderRows('scan-activity-body', 8);
+    renderRows('scan-activity-body-all', 100);
+    document.getElementById('scan-activity-updated').textContent = new Date().toLocaleTimeString();
 }
-document.addEventListener('click', function(e) {
-    const btn = e.target.closest('.btn-user-act');
-    if (btn && btn.dataset.id && btn.dataset.action) {
-        performUserAction(btn.dataset.id, btn.dataset.action, btn.dataset.username || '');
+
+async function refreshScanRuns() {
+    try {
+        const response = await fetch("{% url 'admin_scan_activity' %}", { headers: { 'Accept': 'application/json' } });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (result.ok) renderScanRuns(result.runs || []);
+    } catch (error) {
+        // Keep the last successful snapshot visible if the network drops.
     }
+}
+
+function openUserEdit(button) {
+    document.getElementById('edit-user-id').value = button.dataset.id;
+    document.getElementById('edit-username').value = button.dataset.username;
+    document.getElementById('edit-email').value = button.dataset.email;
+    document.getElementById('user-edit-error').hidden = true;
+    document.getElementById('user-edit-modal').hidden = false;
+    document.getElementById('edit-username').focus();
+}
+
+async function saveUserEdit(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const errorBox = document.getElementById('user-edit-error');
+    errorBox.hidden = true;
+    try {
+        const response = await fetch("{% url 'admin_user_edit' %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': adminCookie('csrftoken') },
+            body: new FormData(form)
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.error || 'Could not update this account.');
+        document.getElementById('user-edit-modal').hidden = true;
+        showAdminFeedback(result.message);
+        window.setTimeout(() => window.location.reload(), 700);
+    } catch (error) {
+        errorBox.textContent = error.message;
+        errorBox.hidden = false;
+    }
+}
+
+async function performAdminUserAction(button) {
+    const { id, action, username } = button.dataset;
+    if (action === 'delete' && !window.confirm(`Delete ${username} and all of their saved scans? This cannot be undone.`)) return;
+    const body = new FormData();
+    body.append('user_id', id);
+    body.append('action_type', action);
+    button.disabled = true;
+    try {
+        const response = await fetch("{% url 'admin_user_action' %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': adminCookie('csrftoken') },
+            body
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.error || 'The action could not be completed.');
+        showAdminFeedback(result.message);
+        window.setTimeout(() => window.location.reload(), 700);
+    } catch (error) {
+        showAdminFeedback(error.message, true);
+        button.disabled = false;
+    }
+}
+
+async function inspectAdminScan(scanId) {
+    const modal = document.getElementById('scan-inspect-modal');
+    const content = document.getElementById('scan-inspect-content');
+    modal.hidden = false;
+    content.innerHTML = '<p class="admin-muted">Loading report…</p>';
+    try {
+        const response = await fetch(`/api/scan/${encodeURIComponent(scanId)}/`, { headers: { 'Accept': 'application/json' } });
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw new Error(result.error || 'Report unavailable.');
+        const scan = result.scan || {};
+        const findings = result.report?.findings || [];
+        const header = `<div class="admin-report-summary"><span>${escapeAdminHtml(scan.target)}</span><span>Grade ${escapeAdminHtml(scan.grade)} · Risk ${escapeAdminHtml(scan.risk_score)}/100</span><span>${escapeAdminHtml(scan.started_at)}</span></div>`;
+        const rows = findings.length ? findings.map(finding => `<article class="admin-finding"><div><strong>${escapeAdminHtml(finding.type || finding.category || 'Finding')}</strong><span class="admin-finding-severity">${escapeAdminHtml(finding.severity || 'Unspecified')}</span></div><p>${escapeAdminHtml(finding.detail || finding.description || '')}</p>${finding.evidence ? `<code>${escapeAdminHtml(finding.evidence)}</code>` : ''}</article>`).join('') : '<p class="admin-empty-cell">No findings were recorded for this scan.</p>';
+        document.getElementById('scan-inspect-title').textContent = `Scan #${scan.id}`;
+        content.innerHTML = `${header}<h3 class="admin-subheading">Findings (${findings.length})</h3>${rows}`;
+    } catch (error) {
+        content.innerHTML = `<p class="admin-form-error">${escapeAdminHtml(error.message)}</p>`;
+    }
+}
+
+document.addEventListener('click', event => {
+    const viewButton = event.target.closest('[data-admin-view]');
+    if (viewButton) setAdminView(viewButton.dataset.adminView);
+    const editButton = event.target.closest('[data-edit-user]');
+    if (editButton) openUserEdit(editButton);
+    const actionButton = event.target.closest('[data-user-action]');
+    if (actionButton) performAdminUserAction(actionButton);
+    const scanButton = event.target.closest('[data-inspect-scan]');
+    if (scanButton) inspectAdminScan(scanButton.dataset.inspectScan);
+    if (event.target.closest('[data-close-modal]')) event.target.closest('.admin-modal').hidden = true;
 });
+
+document.querySelectorAll('.admin-search').forEach(input => {
+    input.addEventListener('input', () => {
+        const table = document.getElementById(input.dataset.searchTable);
+        const query = input.value.trim().toLowerCase();
+        table.querySelectorAll('[data-search-row]').forEach(row => {
+            row.hidden = !row.textContent.toLowerCase().includes(query);
+        });
+    });
+});
+
+document.getElementById('user-edit-form').addEventListener('submit', saveUserEdit);
+document.getElementById('database-table-select').addEventListener('change', event => {
+    document.querySelectorAll('.admin-database-table-card').forEach(card => card.classList.toggle('active', card.dataset.databaseTable === event.target.value));
+    loadDatabasePreview();
+});
+document.querySelectorAll('.admin-database-table-card').forEach(card => card.addEventListener('click', () => {
+    document.getElementById('database-table-select').value = card.dataset.databaseTable;
+    document.getElementById('database-table-select').dispatchEvent(new Event('change'));
+}));
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') document.querySelectorAll('.admin-modal:not([hidden])').forEach(modal => { modal.hidden = true; });
+});
+refreshScanRuns();
+window.setInterval(refreshScanRuns, 3000);
 </script>
 {% endblock %}
-
